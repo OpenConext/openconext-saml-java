@@ -15,7 +15,7 @@ import static java.util.zip.Deflater.DEFLATED;
 
 public class EncodingUtils {
 
-    private static Base64 UNCHUNKED_ENCODER = new Base64(0, new byte[]{'\n'});
+    private static final Base64 UNCHUNKED_ENCODER = new Base64(0, new byte[]{'\n'});
 
     public static String encode(byte[] b) {
         return UNCHUNKED_ENCODER.encodeToString(b);
@@ -46,6 +46,28 @@ public class EncodingUtils {
             return new String(out.toByteArray(), UTF_8);
         } catch (IOException e) {
             throw new RuntimeException("Unable to inflate string", e);
+        }
+    }
+
+
+    static String samlEncode(String s, boolean deflate) {
+        byte[] b;
+        if (deflate) {
+            b = EncodingUtils.deflate(s);
+        }
+        else {
+            b = s.getBytes(UTF_8);
+        }
+        return EncodingUtils.encode(b);
+    }
+
+    public static String samlDecode(String s, boolean inflate) {
+        byte[] b = EncodingUtils.decode(s);
+        if (inflate) {
+            return EncodingUtils.inflate(b);
+        }
+        else {
+            return new String(b, UTF_8);
         }
     }
 }
