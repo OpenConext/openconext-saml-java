@@ -43,7 +43,9 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import saml.crypto.KeyStoreLocator;
 import saml.crypto.X509Utilities;
+import saml.model.Attribute;
 import saml.model.SAMLConfiguration;
+import saml.model.Status;
 import saml.parser.EncodingUtils;
 
 import javax.xml.namespace.QName;
@@ -344,9 +346,8 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         return manager.getDefaultManager().getFactory(credential).newInstance();
     }
 
-    @Override
     @SneakyThrows
-    public void signObject(SignableSAMLObject signable,
+    protected void signObject(SignableSAMLObject signable,
                            Credential credential) {
         Signature signature = buildSAMLObject(Signature.class);
         signable.setSignature(signature);
@@ -370,6 +371,8 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         return (T) getBuilderFactory().getBuilder(defaultElementName).buildObject(defaultElementName);
     }
 
+    @Override
+    public void sendResponse(String inResponseTo, Status status, String optionalMessage, List<Attribute> attributes) {
 
-
+    }
 }
