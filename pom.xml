@@ -174,17 +174,6 @@
             <releases>
                 <enabled>true</enabled>
             </releases>
-            <id>shibboleth-milestones</id>
-            <name>shibboleth-milestones</name>
-            <url>https://build.shibboleth.net/maven/releases/</url>
-        </repository>
-        <repository>
-            <snapshots>
-                <enabled>true</enabled>
-            </snapshots>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
             <id>openconext</id>
             <name>openconext</name>
             <url>https://build.openconext.org/repository/public/releases/</url>
