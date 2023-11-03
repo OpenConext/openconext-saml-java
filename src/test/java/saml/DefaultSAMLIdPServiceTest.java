@@ -6,27 +6,39 @@ import net.shibboleth.utilities.java.support.resolver.ResolverException;
 import net.shibboleth.utilities.java.support.xml.SerializeSupport;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.IOUtils;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 import org.junit.jupiter.api.Test;
 import org.opensaml.core.criterion.EntityIdCriterion;
+import org.opensaml.core.xml.schema.XSString;
 import org.opensaml.core.xml.util.XMLObjectSupport;
+import org.opensaml.saml.saml2.core.Attribute;
 import org.opensaml.saml.saml2.core.AuthnRequest;
+import org.opensaml.saml.saml2.core.Response;
 import org.opensaml.security.credential.Credential;
 import org.opensaml.security.credential.UsageType;
 import org.opensaml.security.credential.impl.KeyStoreCredentialResolver;
 import org.opensaml.security.criteria.UsageCriterion;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.w3c.dom.Element;
 import saml.crypto.KeyStoreLocator;
+import saml.model.SAMLAttribute;
 import saml.model.SAMLConfiguration;
+import saml.model.SAMLStatus;
+import saml.parser.EncodingUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.security.KeyStore;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 
@@ -118,5 +130,45 @@ class DefaultSAMLIdPServiceTest {
 
         String uri = authnRequest.getScoping().getRequesterIDs().get(0).getURI();
         assertEquals("https://test.surfconext.nl", uri);
+    }
+
+    @Test
+    void sendResponse() throws UnsupportedEncodingException {
+        String inResponseTo = UUID.randomUUID().toString();
+        MockHttpServletResponse httpServletResponse = new MockHttpServletResponse();
+        openSamlParser.sendResponse(
+                "https://acs",
+                inResponseTo,
+                "urn:specified",
+                SAMLStatus.SUCCESS,
+                "relayState😀",
+                null,
+                DefaultSAMLIdPService.authnContextClassRefPassword,
+                List.of(
+                        new SAMLAttribute("group", "riders"),
+                        new SAMLAttribute("group", "gliders"),
+                        new SAMLAttribute("single", "value")
+                ),
+                httpServletResponse
+        );
+        String html = httpServletResponse.getContentAsString();
+        Document document = Jsoup.parse(html);
+        String relayState = document.select("input[name=\"RelayState\"]").first().attr("value");
+        assertEquals("relayState?�", relayState);
+
+        String samlResponse = document.select("input[name=\"SAMLResponse\"]").first().attr("value");
+        Response response = openSamlParser.parseResponse(samlResponse, true, false);
+        List<Attribute> attributes = response
+                .getAssertions().get(0)
+                .getAttributeStatements().get(0)
+                .getAttributes();
+
+        List<String> group = attributes.stream()
+                .filter(attribute -> attribute.getName().equals("group")).findAny().get()
+                .getAttributeValues().stream()
+                .map(xmlObject -> ((XSString) xmlObject).getValue())
+                .sorted()
+                .collect(Collectors.toList());
+        assertEquals(List.of("gliders", "riders"), group);
     }
 }

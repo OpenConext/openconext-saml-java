@@ -2,21 +2,22 @@ package saml;
 
 import lombok.SneakyThrows;
 import net.shibboleth.utilities.java.support.resolver.CriteriaSet;
-import net.shibboleth.utilities.java.support.resolver.ResolverException;
 import net.shibboleth.utilities.java.support.xml.BasicParserPool;
 import net.shibboleth.utilities.java.support.xml.SerializeSupport;
+import net.shibboleth.utilities.java.support.xml.XMLParserException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringEscapeUtils;
 import org.opensaml.core.config.ConfigurationService;
 import org.opensaml.core.config.InitializationService;
 import org.opensaml.core.criterion.EntityIdCriterion;
 import org.opensaml.core.xml.XMLObject;
-import org.opensaml.core.xml.XMLObjectBuilderFactory;
 import org.opensaml.core.xml.config.XMLObjectProviderRegistry;
 import org.opensaml.core.xml.config.XMLObjectProviderRegistrySupport;
 import org.opensaml.core.xml.io.Marshaller;
 import org.opensaml.core.xml.io.UnmarshallerFactory;
+import org.opensaml.core.xml.io.UnmarshallingException;
 import org.opensaml.core.xml.schema.XSString;
+import org.opensaml.core.xml.schema.impl.XSStringBuilder;
 import org.opensaml.core.xml.util.XMLObjectSupport;
 import org.opensaml.saml.common.SAMLVersion;
 import org.opensaml.saml.common.SignableSAMLObject;
@@ -89,11 +90,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
                 "secret"
         );
         KeyStoreCredentialResolver resolver = new KeyStoreCredentialResolver(keyStore, Map.of(entityId, "secret"), UsageType.SIGNING);
-        try {
-            this.signinCredential = resolver.resolveSingle(new CriteriaSet(new EntityIdCriterion(entityId), new UsageCriterion(UsageType.SIGNING)));
-        } catch (ResolverException e) {
-            throw new RuntimeException(e);
-        }
+        this.signinCredential = resolver.resolveSingle(new CriteriaSet(new EntityIdCriterion(entityId), new UsageCriterion(UsageType.SIGNING)));
 
         this.parserPool = new BasicParserPool();
         this.configuration = configuration;
@@ -134,14 +131,9 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
     }
 
 
-    public UnmarshallerFactory getUnmarshallerFactory() {
+    private UnmarshallerFactory getUnmarshallerFactory() {
         return XMLObjectProviderRegistrySupport.getUnmarshallerFactory();
     }
-
-    public XMLObjectBuilderFactory getBuilderFactory() {
-        return XMLObjectProviderRegistrySupport.getBuilderFactory();
-    }
-
 
     private static Map<String, Boolean> getParserBuilderFeatures() {
         Map<String, Boolean> parserBuilderFeatures = new HashMap<>();
@@ -170,18 +162,30 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         }
     }
 
-    @Override
-    @SneakyThrows
-    public AuthnRequest parseAuthnRequest(String xml, boolean encoded, boolean deflated) {
+    private XMLObject parseXMLObject(String xml, boolean encoded, boolean deflated) throws XMLParserException, UnmarshallingException {
         if (encoded) {
             xml = EncodingUtils.samlDecode(xml, deflated);
         }
         Document document = this.parserPool.parse(new ByteArrayInputStream(xml.getBytes()));
         Element element = document.getDocumentElement();
-        AuthnRequest authnRequest = (AuthnRequest) getUnmarshallerFactory().getUnmarshaller(element).unmarshall(element);
+        return getUnmarshallerFactory().getUnmarshaller(element).unmarshall(element);
+    }
+
+    @Override
+    @SneakyThrows
+    public AuthnRequest parseAuthnRequest(String xml, boolean encoded, boolean deflated) {
+        AuthnRequest authnRequest = (AuthnRequest) parseXMLObject(xml, encoded, deflated);
 
         this.validateSignature(authnRequest);
         return authnRequest;
+    }
+
+    @SneakyThrows
+    public Response parseResponse(String xml, boolean encoded, boolean deflated) {
+        Response response = (Response) parseXMLObject(xml, encoded, deflated);
+
+        this.validateSignature(response);
+        return response;
     }
 
     private static X509Credential loadPublicKey(String certificate) throws Exception {
@@ -218,7 +222,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
     @SuppressWarnings("unchecked")
     private <T extends XMLObject> T buildSAMLObject(final Class<T> clazz) {
         QName defaultElementName = (QName) clazz.getDeclaredField("DEFAULT_ELEMENT_NAME").get(null);
-        return (T) getBuilderFactory().getBuilder(defaultElementName).buildObject(defaultElementName);
+        return (T) XMLObjectProviderRegistrySupport.getBuilderFactory().getBuilder(defaultElementName).buildObject(defaultElementName);
     }
 
     @SneakyThrows
@@ -258,7 +262,10 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         response.setStatus(newStatus);
 
         Assertion assertion = buildSAMLObject(Assertion.class);
-        assertion.setIssuer(issuer);
+        // Can't re-use, because it is already the child of another XML Object
+        Issuer newIssuer = buildSAMLObject(Issuer.class);
+        newIssuer.setValue(this.configuration.getIssuerId());
+        assertion.setIssuer(newIssuer);
         assertion.setID("A" + UUID.randomUUID());
         assertion.setIssueInstant(now);
         assertion.setVersion(SAMLVersion.VERSION_20);
@@ -310,14 +317,16 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         AttributeStatement attributeStatement = buildSAMLObject(AttributeStatement.class);
         List<Attribute> attributes = attributeStatement.getAttributes();
         Map<String, List<SAMLAttribute>> groupedSAMLAttributes = samlAttributes.stream().collect(Collectors.groupingBy(SAMLAttribute::getName));
+        XSStringBuilder stringBuilder = (XSStringBuilder) XMLObjectProviderRegistrySupport.getBuilderFactory().getBuilder(XSString.TYPE_NAME);
+
         groupedSAMLAttributes.forEach((name, values) -> {
             Attribute attribute = buildSAMLObject(Attribute.class);
             attribute.setName(name);
             attribute.setNameFormat("urn:oasis:names:tc:SAML:2.0:attrname-format:uri");
             attribute.getAttributeValues().addAll(values.stream().map(value -> {
-                XSString xsString = buildSAMLObject(XSString.class);
-                xsString.setValue(value.getValue());
-                return xsString;
+                XSString stringValue = stringBuilder.buildObject(AttributeValue.DEFAULT_ELEMENT_NAME, XSString.TYPE_NAME);
+                stringValue.setValue(value.getValue());
+                return stringValue;
             }).collect(Collectors.toList()));
             attributes.add(attribute);
         });
