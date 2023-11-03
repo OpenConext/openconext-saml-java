@@ -1,21 +1,10 @@
 package saml.crypto;
 
 import lombok.SneakyThrows;
-import org.apache.commons.io.IOUtils;
-import saml.crypto.X509Utilities;
 
-import java.io.ByteArrayInputStream;
-import java.security.KeyFactory;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.security.interfaces.RSAPrivateKey;
-import java.security.spec.KeySpec;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.util.ArrayList;
-import java.util.Base64;
 
 public class KeyStoreLocator {
 

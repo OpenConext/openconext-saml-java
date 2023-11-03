@@ -25,7 +25,6 @@ import saml.crypto.KeyStoreLocator;
 import saml.model.SAMLAttribute;
 import saml.model.SAMLConfiguration;
 import saml.model.SAMLStatus;
-import saml.parser.EncodingUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

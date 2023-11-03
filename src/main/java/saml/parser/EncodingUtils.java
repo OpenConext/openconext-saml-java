@@ -41,7 +41,6 @@ public class EncodingUtils {
         return out.toString(UTF_8);
     }
 
-
     public static String samlEncode(String s, boolean deflate) {
         byte[] b = deflate ? EncodingUtils.deflate(s) : s.getBytes(UTF_8);
         return UN_CHUNKED_ENCODER.encodeToString(b);
@@ -53,9 +52,7 @@ public class EncodingUtils {
         ByteBuffer outputBuffer = ISO_8859_1.encode(data);
         byte[] outputData = outputBuffer.array();
         return new String(outputData, ISO_8859_1);
-
     }
-
 
     public static String samlDecode(String s, boolean inflate) {
         byte[] b = UN_CHUNKED_ENCODER.decode(s);
