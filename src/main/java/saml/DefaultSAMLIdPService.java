@@ -19,6 +19,7 @@ import org.opensaml.core.xml.schema.*;
 import org.opensaml.core.xml.schema.impl.*;
 import org.opensaml.saml.common.SAMLObjectBuilder;
 import org.opensaml.saml.common.SignableSAMLObject;
+import org.opensaml.saml.common.xml.SAMLSchemaBuilder;
 import org.opensaml.saml.saml2.core.AttributeValue;
 import org.opensaml.saml.saml2.core.AuthnRequest;
 import org.opensaml.saml.saml2.core.NameIDType;
@@ -224,7 +225,6 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         AuthnRequest authnRequest = (AuthnRequest) getUnmarshallerFactory().getUnmarshaller(element).unmarshall(element);
 
         this.validateSignature(authnRequest);
-
         return authnRequest;
     }
 
@@ -355,9 +355,9 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         SignatureSigningParameters signingParameters = new SignatureSigningParameters();
         signingParameters.setSigningCredential(credential);
         signingParameters.setKeyInfoGenerator(getKeyInfoGenerator(credential));
-        signingParameters.setSignatureAlgorithm(SignatureConstants.ALGO_ID_SIGNATURE_RSA_SHA256);
+        signingParameters.setSignatureAlgorithm(SignatureConstants.ALGO_ID_SIGNATURE_RSA_SHA512);
         signingParameters.setSignatureCanonicalizationAlgorithm(SignatureConstants.ALGO_ID_C14N_EXCL_OMIT_COMMENTS);
-        signingParameters.setSignatureReferenceDigestMethod(SignatureConstants.ALGO_ID_DIGEST_SHA256);
+        signingParameters.setSignatureReferenceDigestMethod(SignatureConstants.ALGO_ID_DIGEST_SHA512);
 
         SignatureSupport.prepareSignatureParams(signature, signingParameters);
         Marshaller marshaller = XMLObjectProviderRegistrySupport.getMarshallerFactory().getMarshaller(signable);
