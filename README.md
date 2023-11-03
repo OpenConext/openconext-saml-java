@@ -4,7 +4,7 @@
 
 ### [Usage](#usage)
 
-The main interface of the SAML IdP library is [SAMLIdPService](openconext-samlidp-lib/java/blob/main/src/main/java/saml/SAMLIdPService.java). 
+The main interface of the SAML IdP library is `SAMLIdPService`. 
 It provides the following functionality
 - parsing SAML to an `org.opensaml.saml.saml2.core.AuthnRequest`
 - sending SAML response back to the Service Provider
