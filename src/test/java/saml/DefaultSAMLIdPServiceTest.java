@@ -45,7 +45,9 @@ class DefaultSAMLIdPServiceTest {
                 readFile("saml_idp.crt"),
                 readFile("saml_idp.pem"),
                 entityId,
+                "https://engine.test.surfconext.nl/authentication/sp/metadata",
                 readFile("saml_idp.crt"),
+                entityId,
                 false
         );
         openSamlParser = new DefaultSAMLIdPService(samlConfiguration);
@@ -61,7 +63,6 @@ class DefaultSAMLIdPServiceTest {
         } catch (ResolverException e) {
             throw new RuntimeException(e);
         }
-
     }
 
     @SneakyThrows

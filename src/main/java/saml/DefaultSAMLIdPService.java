@@ -4,7 +4,9 @@ import lombok.SneakyThrows;
 import net.shibboleth.utilities.java.support.resolver.CriteriaSet;
 import net.shibboleth.utilities.java.support.resolver.ResolverException;
 import net.shibboleth.utilities.java.support.xml.BasicParserPool;
+import net.shibboleth.utilities.java.support.xml.SerializeSupport;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import org.opensaml.core.config.ConfigurationService;
 import org.opensaml.core.config.InitializationService;
 import org.opensaml.core.criterion.EntityIdCriterion;
@@ -13,23 +15,16 @@ import org.opensaml.core.xml.XMLObjectBuilderFactory;
 import org.opensaml.core.xml.config.XMLObjectProviderRegistry;
 import org.opensaml.core.xml.config.XMLObjectProviderRegistrySupport;
 import org.opensaml.core.xml.io.Marshaller;
-import org.opensaml.core.xml.io.MarshallerFactory;
 import org.opensaml.core.xml.io.UnmarshallerFactory;
-import org.opensaml.core.xml.schema.*;
-import org.opensaml.core.xml.schema.impl.*;
-import org.opensaml.saml.common.SAMLObjectBuilder;
+import org.opensaml.core.xml.schema.XSString;
+import org.opensaml.core.xml.util.XMLObjectSupport;
+import org.opensaml.saml.common.SAMLVersion;
 import org.opensaml.saml.common.SignableSAMLObject;
-import org.opensaml.saml.common.xml.SAMLSchemaBuilder;
-import org.opensaml.saml.saml2.core.AttributeValue;
-import org.opensaml.saml.saml2.core.AuthnRequest;
-import org.opensaml.saml.saml2.core.NameIDType;
-import org.opensaml.saml.saml2.metadata.EntityDescriptor;
-import org.opensaml.saml.saml2.metadata.Extensions;
-import org.opensaml.saml.saml2.metadata.IDPSSODescriptor;
-import org.opensaml.saml.saml2.metadata.SPSSODescriptor;
+import org.opensaml.saml.saml2.core.*;
 import org.opensaml.security.credential.Credential;
 import org.opensaml.security.credential.UsageType;
 import org.opensaml.security.credential.impl.KeyStoreCredentialResolver;
+import org.opensaml.security.criteria.UsageCriterion;
 import org.opensaml.security.x509.BasicX509Credential;
 import org.opensaml.security.x509.X509Credential;
 import org.opensaml.xmlsec.SignatureSigningParameters;
@@ -38,35 +33,37 @@ import org.opensaml.xmlsec.keyinfo.KeyInfoGenerator;
 import org.opensaml.xmlsec.keyinfo.NamedKeyInfoGeneratorManager;
 import org.opensaml.xmlsec.signature.Signature;
 import org.opensaml.xmlsec.signature.support.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import saml.crypto.KeyStoreLocator;
 import saml.crypto.X509Utilities;
-import saml.model.Attribute;
+import saml.model.SAMLAttribute;
 import saml.model.SAMLConfiguration;
-import saml.model.Status;
+import saml.model.SAMLStatus;
 import saml.parser.EncodingUtils;
+import saml.parser.OpenSamlVelocityEngine;
 
+import javax.servlet.http.HttpServletResponse;
 import javax.xml.namespace.QName;
 import java.io.ByteArrayInputStream;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
+import java.io.StringWriter;
 import java.security.KeyStore;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
-import static java.util.Collections.emptyList;
-import static java.util.Optional.ofNullable;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class DefaultSAMLIdPService implements SAMLIdPService {
+
+    public static final String authnContextClassRefPassword = "urn:oasis:names:tc:SAML:2.0:ac:classes:Password";
+    private static final String POST_BINDING_VM = "/templates/saml2-post-binding.vm";
 
     static {
         java.security.Security.addProvider(
@@ -74,15 +71,30 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         );
     }
 
-    private static final Logger LOG = LoggerFactory.getLogger(DefaultSAMLIdPService.class);
-
+    private final OpenSamlVelocityEngine velocityEngine = new OpenSamlVelocityEngine();
     private final BasicParserPool parserPool;
     private final X509Credential signatureValidationCredential;
     private final SAMLConfiguration configuration;
+    private final Duration skewTime = Duration.ofMinutes(5);
+    private final Credential signinCredential;
 
     @SneakyThrows
     public DefaultSAMLIdPService(SAMLConfiguration configuration) {
         this.signatureValidationCredential = loadPublicKey(configuration.getSpCertificate());
+        String entityId = configuration.getEntityId();
+        KeyStore keyStore = KeyStoreLocator.createKeyStore(
+                entityId,
+                configuration.getIdpCertificate(),
+                configuration.getIdpPrivateKey(),
+                "secret"
+        );
+        KeyStoreCredentialResolver resolver = new KeyStoreCredentialResolver(keyStore, Map.of(entityId, "secret"), UsageType.SIGNING);
+        try {
+            this.signinCredential = resolver.resolveSingle(new CriteriaSet(new EntityIdCriterion(entityId), new UsageCriterion(UsageType.SIGNING)));
+        } catch (ResolverException e) {
+            throw new RuntimeException(e);
+        }
+
         this.parserPool = new BasicParserPool();
         this.configuration = configuration;
         bootstrap();
@@ -122,40 +134,8 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
     }
 
 
-    public MarshallerFactory getMarshallerFactory() {
-        return XMLObjectProviderRegistrySupport.getMarshallerFactory();
-    }
-
     public UnmarshallerFactory getUnmarshallerFactory() {
         return XMLObjectProviderRegistrySupport.getUnmarshallerFactory();
-    }
-
-    public EntityDescriptor getEntityDescriptor() {
-        XMLObjectBuilderFactory builderFactory = getBuilderFactory();
-        SAMLObjectBuilder<EntityDescriptor> builder =
-                (SAMLObjectBuilder<EntityDescriptor>) builderFactory.getBuilder(EntityDescriptor
-                        .DEFAULT_ELEMENT_NAME);
-        return builder.buildObject();
-    }
-
-    public SPSSODescriptor getSPSSODescriptor() {
-        SAMLObjectBuilder<SPSSODescriptor> builder =
-                (SAMLObjectBuilder<SPSSODescriptor>) getBuilderFactory().getBuilder(SPSSODescriptor
-                        .DEFAULT_ELEMENT_NAME);
-        return builder.buildObject();
-    }
-
-    public IDPSSODescriptor getIDPSSODescriptor() {
-        SAMLObjectBuilder<IDPSSODescriptor> builder =
-                (SAMLObjectBuilder<IDPSSODescriptor>) getBuilderFactory().getBuilder(IDPSSODescriptor
-                        .DEFAULT_ELEMENT_NAME);
-        return builder.buildObject();
-    }
-
-    public Extensions getMetadataExtensions() {
-        SAMLObjectBuilder<Extensions> builder =
-                (SAMLObjectBuilder<Extensions>) getBuilderFactory().getBuilder(Extensions.DEFAULT_ELEMENT_NAME);
-        return builder.buildObject();
     }
 
     public XMLObjectBuilderFactory getBuilderFactory() {
@@ -175,30 +155,6 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         parserBuilderFeatures.put("http://xml.org/sax/features/external-parameter-entities", FALSE);
         parserBuilderFeatures.put("http://apache.org/xml/features/dom/defer-node-expansion", FALSE);
         return parserBuilderFeatures;
-    }
-
-
-    public Credential getCredential(KeyStoreCredentialResolver resolver) {
-        try {
-            CriteriaSet cs = new CriteriaSet();
-            EntityIdCriterion criteria = new EntityIdCriterion("key");
-            cs.add(criteria);
-            return resolver.resolveSingle(cs);
-        } catch (ResolverException e) {
-            throw new RuntimeException("Can't obtain SP private key", e);
-        }
-    }
-
-    public KeyStoreCredentialResolver getCredentialsResolver() {
-        String privateKey = "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDQRsCf6qU0DYkoFIJUhNlMxJFKMPsEvK+u3rcaBIZcyWX4Cv5OU3xtcCAg6mqRwMRFYFDNdGgR0XLTaHAOcJpR7cXYnYc0Wa6Kh8KSstgZrCl+WdqCtuUS6bMrrAdSq6HpoAPwo1JyOqyC9ccRZ9ysjhYdWQS1ELSjUHjEuxxRoEgwKfrF7kxbo89dixQ7oF9E9CgeWtftJfMtDxGtMhmtaIurHjjcfOPWR8TND0b1Lp1pLkzPn6GdI2aRWqV3tNsljKoXP9omDInhP9xrzoLiXISbekfnLrfFQW+rmylCBiu6ZqKv0weg1V6b7B6rAyV3nIcXInLuKXSlQx0nnPOdAgMBAAECggEAOrAlKSqyYIeL5XpZ+zzwCly9X/2LThtpGcpyJ+esgMrTa+CVJjcKMcBNnVjQrL93zuDEBBDQHm05gO7F3JvIMFviyxYgehTnROvaXQH+OMW1b4AcPYcR55Foxl6UNaxdVHqdgZpT6hI0eDaPYI02tnzXKG/kDq1laTuMvErJQQp6Cd611yyAhBvpX1ibpAYvex10sfTkj0GRKmOrGqwVXibN29szaRei7Xeg/RStdVBgrYJoR5/4++dkGapa27oRdOh4VJUChRfXuJtH6pyxC7uay1fMRcmo2u6NcWAT6qMOvxLcuesnNFrbSlPoZaxWNiZRX/SVqeieyRAA0WS7IQKBgQDoywh4DkdL+SPrkA/sB0rOQF3kJjlzWibk9OM17In1P+obQk37kSRYKfBvsk48VWdG1fN33Up05Pxe+f36F//AZ8mp7uTmBtd6CAoR/005WxwkCSihF6LaDiB3VtxlpcfRA/TUZ10PMud43w0AeG30AG0KpCokfIiY87OpyTjJWQKBgQDlCgsgZ9rL3Wm7FbEDZ4f2uTB5rlT0Vz80paV0OOJdUQECrZW1PjemQpqIJocr8yoNupkrZKPSi4mbNoMFF1wXIydOjLq6iQ6KWIKRdsvmeXL++tWg6TiD8nDpBxuKzjRhwMcQN2lakb/SusoXnmG8qq12PCFUvpbhoZRqRPWv5QKBgQC8jUasxxPka0U21RawXC+w4t2pn3RFBC4goGEwGgibxkr+DTRQoHzJlB6Uud04bQwbicuLuIdIKvhmjSGzYaDa3LWwmDh6P+xjgQN3FEweOreOUITCBfz3lR2iy430HtS7bPLu31G2r8pgUnmbee/FBFtNlS41I1EYYbuRt9Pw8QKBgD6aPSpRWKtqTHD3X9e3X6FfQtGvhcb3Ze5E7HFU7wJklqsduRK9+8X05HocVcv8fd0cyKrkqiZtP2JuRueIWAJ2+FJvAsbjmVbVFHMgDmFjhrwM4YFG3cyq4pO+/pc0/3pMj9xt2N0Jg23c4koMX1iLKjhr/QxFv8XSPVfCm4jFAoGALfejdx4PpFgTWpbm5ZWRxukhZRhmfCIAWifYeJbsGTB5y7bheVxKmTpP9mKEqGL+gh3cLVPcZ557HWpc4d6NetdyrHffEhWULh4NWYDKC5BRCr9HjLKydBUQUMCFeJs3XZQTtN+CZORcuaI2ISH2QvfYki9ns4ujeH8OjzfHpvI=";
-        String certificate = "MIIDEzCCAfugAwIBAgIJAKoK/heBjcOYMA0GCSqGSIb3DQEBBQUAMCAxHjAcBgNVBAoMFU9yZ2FuaXphdGlvbiwgQ049T0lEQzAeFw0xNTExMTExMDEyMTVaFw0yNTExMTAxMDEyMTVaMCAxHjAcBgNVBAoMFU9yZ2FuaXphdGlvbiwgQ049T0lEQzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBANBGwJ/qpTQNiSgUglSE2UzEkUow+wS8r67etxoEhlzJZfgK/k5TfG1wICDqapHAxEVgUM10aBHRctNocA5wmlHtxdidhzRZroqHwpKy2BmsKX5Z2oK25RLpsyusB1KroemgA/CjUnI6rIL1xxFn3KyOFh1ZBLUQtKNQeMS7HFGgSDAp+sXuTFujz12LFDugX0T0KB5a1+0l8y0PEa0yGa1oi6seONx849ZHxM0PRvUunWkuTM+foZ0jZpFapXe02yWMqhc/2iYMieE/3GvOguJchJt6R+cut8VBb6ubKUIGK7pmoq/TB6DVXpvsHqsDJXechxcicu4pdKVDHSec850CAwEAAaNQME4wHQYDVR0OBBYEFK7RqjoodSYVXGTVEdLf3kJflP/sMB8GA1UdIwQYMBaAFK7RqjoodSYVXGTVEdLf3kJflP/sMAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQEFBQADggEBADNZkxlFXh4F45muCbnQd+WmaXlGvb9tkUyAIxVL8AIu8J18F420vpnGpoUAE+Hy3evBmp2nkrFAgmr055fAjpHeZFgDZBAPCwYd3TNMDeSyMta3Ka+oS7GRFDePkMEm+kH4/rITNKUF1sOvWBTSowk9TudEDyFqgGntcdu/l/zRxvx33y3LMG5USD0x4X4IKjRrRN1BbcKgi8dq10C3jdqNancTuPoqT3WWzRvVtB/q34B7F74/6JzgEoOCEHufBMp4ZFu54P0yEGtWfTwTzuoZobrChVVBt4w/XZagrRtUCDNwRpHNbpjxYudbqLqpi1MQpV9oht/BpTHVJG2i0ro=";
-        String passphrase = "secret";
-        String idpEntityId = "http://entity.id";
-        KeyStore keyStore = KeyStoreLocator.createKeyStore("secret");
-        KeyStoreLocator.addPrivateKey(keyStore, idpEntityId, privateKey, certificate, passphrase);
-
-        Map<String, String> passwords = Map.of(idpEntityId, passphrase);
-        return new KeyStoreCredentialResolver(keyStore, passwords, UsageType.SIGNING);
     }
 
     @SneakyThrows
@@ -228,119 +184,12 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         return authnRequest;
     }
 
-    protected List<Object> getJavaValues(List<XMLObject> attributeValues) {
-        List<Object> result = new LinkedList<>();
-        for (XMLObject o : ofNullable(attributeValues).orElse(emptyList())) {
-            if (o == null) {
-
-            } else if (o instanceof XSString) {
-                result.add(((XSString) o).getValue());
-            } else if (o instanceof XSURI) {
-                try {
-                    result.add(new URI(((XSURI) o).getURI()));
-                } catch (URISyntaxException e) {
-                    result.add(((XSURI) o).getURI());
-                }
-            } else if (o instanceof XSBoolean) {
-                result.add(((XSBoolean) o).getValue().getValue());
-            } else if (o instanceof XSDateTime) {
-                result.add(((XSDateTime) o).getValue());
-            } else if (o instanceof XSInteger) {
-                result.add(((XSInteger) o).getValue());
-            } else if (o instanceof XSAny) {
-                XSAny xsAny = (XSAny) o;
-                String textContent = xsAny.getTextContent();
-                if (StringUtils.isEmpty(textContent) && xsAny.getUnknownXMLObjects() != null && !xsAny.getUnknownXMLObjects().isEmpty()) {
-                    XMLObject xmlObject = xsAny.getUnknownXMLObjects().get(0);
-                    if (xmlObject instanceof NameIDType) {
-                        result.add(((NameIDType) xmlObject).getValue());
-                    }
-                } else {
-                    result.add(textContent);
-                }
-            } else {
-                //we don't know the type.
-                result.add(o);
-            }
-        }
-
-        return result;
-    }
-
-    protected XMLObject objectToXmlObject(Object o) {
-        if (o == null) {
-            return null;
-        } else if (o instanceof String) {
-            XSStringBuilder builder = (XSStringBuilder) getBuilderFactory().getBuilder(XSString.TYPE_NAME);
-            XSString s = builder.buildObject(AttributeValue.DEFAULT_ELEMENT_NAME, XSString.TYPE_NAME);
-            s.setValue((String) o);
-            return s;
-        } else if (o instanceof URI || o instanceof URL) {
-            XSURIBuilder builder = (XSURIBuilder) getBuilderFactory().getBuilder(XSURI.TYPE_NAME);
-            XSURI uri = builder.buildObject(AttributeValue.DEFAULT_ELEMENT_NAME, XSURI.TYPE_NAME);
-            uri.setURI(o.toString());
-            return uri;
-        } else if (o instanceof Boolean) {
-            XSBooleanBuilder builder = (XSBooleanBuilder) getBuilderFactory().getBuilder(XSBoolean.TYPE_NAME);
-            XSBoolean b = builder.buildObject(AttributeValue.DEFAULT_ELEMENT_NAME, XSBoolean.TYPE_NAME);
-            XSBooleanValue v = XSBooleanValue.valueOf(o.toString());
-            b.setValue(v);
-            return b;
-        } else if (o instanceof Instant) {
-            XSDateTimeBuilder builder = (XSDateTimeBuilder) getBuilderFactory().getBuilder(XSDateTime.TYPE_NAME);
-            XSDateTime dt = builder.buildObject(AttributeValue.DEFAULT_ELEMENT_NAME, XSDateTime.TYPE_NAME);
-            dt.setValue((Instant) o);
-            return dt;
-        } else if (o instanceof Integer) {
-            XSIntegerBuilder builder = (XSIntegerBuilder) getBuilderFactory().getBuilder(XSInteger.TYPE_NAME);
-            XSInteger i = builder.buildObject(AttributeValue.DEFAULT_ELEMENT_NAME, XSInteger.TYPE_NAME);
-            i.setValue(((Integer) o).intValue());
-            return i;
-        } else {
-            XSAnyBuilder builder = (XSAnyBuilder) getBuilderFactory().getBuilder(XSAny.TYPE_NAME);
-            XSAny any = builder.buildObject(AttributeValue.DEFAULT_ELEMENT_NAME, XSAny.TYPE_NAME);
-            any.setTextContent(o.toString());
-            return any;
-        }
-    }
-
-
     private static X509Credential loadPublicKey(String certificate) throws Exception {
         byte[] certBytes = X509Utilities.getDER(certificate);
         return new BasicX509Credential(X509Utilities.getCertificate(certBytes));
     }
 
-
-    protected String xmlObjectToString(XMLObject o) {
-        String toMatch = null;
-        if (o instanceof XSString) {
-            toMatch = ((XSString) o).getValue();
-        } else if (o instanceof XSURI) {
-            toMatch = ((XSURI) o).getURI();
-        } else if (o instanceof XSBoolean) {
-            toMatch = ((XSBoolean) o).getValue().getValue() ? "1" : "0";
-        } else if (o instanceof XSInteger) {
-            toMatch = ((XSInteger) o).getValue().toString();
-        } else if (o instanceof XSDateTime) {
-            Instant value = ((XSDateTime) o).getValue();
-            if (value != null) {
-                toMatch = value.toString();
-            }
-        } else if (o instanceof XSBase64Binary) {
-            toMatch = ((XSBase64Binary) o).getValue();
-        } else if (o instanceof XSAny) {
-            final XSAny wc = (XSAny) o;
-            if (wc.getUnknownAttributes().isEmpty() && wc.getUnknownXMLObjects().isEmpty()) {
-                toMatch = wc.getTextContent();
-            }
-        }
-        if (toMatch != null) {
-            return toMatch;
-        }
-        return null;
-    }
-
-    public KeyInfoGenerator getKeyInfoGenerator(Credential credential) {
+    private KeyInfoGenerator getKeyInfoGenerator(Credential credential) {
         NamedKeyInfoGeneratorManager manager = DefaultSecurityConfigurationBootstrap
                 .buildBasicKeyInfoGeneratorManager();
         return manager.getDefaultManager().getFactory(credential).newInstance();
@@ -348,7 +197,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
 
     @SneakyThrows
     protected void signObject(SignableSAMLObject signable,
-                           Credential credential) {
+                              Credential credential) {
         Signature signature = buildSAMLObject(Signature.class);
         signable.setSignature(signature);
 
@@ -366,13 +215,139 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
     }
 
     @SneakyThrows
-    private <T> T buildSAMLObject(final Class<T> clazz) {
+    @SuppressWarnings("unchecked")
+    private <T extends XMLObject> T buildSAMLObject(final Class<T> clazz) {
         QName defaultElementName = (QName) clazz.getDeclaredField("DEFAULT_ELEMENT_NAME").get(null);
         return (T) getBuilderFactory().getBuilder(defaultElementName).buildObject(defaultElementName);
     }
 
+    @SneakyThrows
     @Override
-    public void sendResponse(String inResponseTo, Status status, String optionalMessage, List<Attribute> attributes) {
+    public void sendResponse(String destination,
+                             String inResponseTo,
+                             String nameId,
+                             SAMLStatus status,
+                             String relayState,
+                             String optionalMessage,
+                             String authnContextClassRefValue,
+                             List<SAMLAttribute> samlAttributes,
+                             HttpServletResponse servletResponse) {
+        Instant now = Instant.now();
+        Instant notOnOrAfter = now.minus(skewTime);
+        Instant notBefore = now.plus(skewTime);
+        //Very cumbersome Open-SAML interface, can't be helped
+        Response response = buildSAMLObject(Response.class);
+        response.setDestination(destination);
+        response.setID("RP" + UUID.randomUUID());
+        response.setInResponseTo(inResponseTo);
+        response.setIssueInstant(now);
 
+        Issuer issuer = buildSAMLObject(Issuer.class);
+        issuer.setValue(this.configuration.getIssuerId());
+        response.setIssuer(issuer);
+        response.setVersion(SAMLVersion.VERSION_20);
+
+        org.opensaml.saml.saml2.core.Status newStatus = buildSAMLObject(org.opensaml.saml.saml2.core.Status.class);
+        StatusCode statusCode = buildSAMLObject(StatusCode.class);
+        statusCode.setValue(status.getStatus());
+        if (StringUtils.isNotEmpty(optionalMessage)) {
+            StatusMessage statusMessage = buildSAMLObject(StatusMessage.class);
+            statusMessage.setValue(optionalMessage);
+            newStatus.setStatusMessage(statusMessage);
+        }
+        response.setStatus(newStatus);
+
+        Assertion assertion = buildSAMLObject(Assertion.class);
+        assertion.setIssuer(issuer);
+        assertion.setID("A" + UUID.randomUUID());
+        assertion.setIssueInstant(now);
+        assertion.setVersion(SAMLVersion.VERSION_20);
+
+        Subject subject = buildSAMLObject(Subject.class);
+        NameID nameID = buildSAMLObject(NameID.class);
+        nameID.setValue(nameId);
+        nameID.setFormat("urn:oasis:names:tc:SAML:2.0:nameid-format:persistent");
+        nameID.setSPNameQualifier(this.configuration.getSpAudience());
+        subject.setNameID(nameID);
+
+        SubjectConfirmation subjectConfirmation = buildSAMLObject(SubjectConfirmation.class);
+        subjectConfirmation.setMethod("urn:oasis:names:tc:SAML:2.0:cm:bearer");
+        SubjectConfirmationData subjectConfirmationData = buildSAMLObject(SubjectConfirmationData.class);
+        subjectConfirmationData.setInResponseTo(inResponseTo);
+        subjectConfirmationData.setNotOnOrAfter(notOnOrAfter);
+        subjectConfirmationData.setNotBefore(notBefore);
+        subjectConfirmationData.setRecipient(destination);
+        subjectConfirmation.setSubjectConfirmationData(subjectConfirmationData);
+        subject.getSubjectConfirmations().add(subjectConfirmation);
+        assertion.setSubject(subject);
+
+        Conditions conditions = buildSAMLObject(Conditions.class);
+        conditions.setNotBefore(notBefore);
+        conditions.setNotOnOrAfter(notOnOrAfter);
+        AudienceRestriction audienceRestriction = buildSAMLObject(AudienceRestriction.class);
+        Audience audience = buildSAMLObject(Audience.class);
+        audience.setURI(this.configuration.getSpAudience());
+        audienceRestriction.getAudiences().add(audience);
+        conditions.getAudienceRestrictions().add(audienceRestriction);
+        assertion.setConditions(conditions);
+
+        AuthnStatement authnStatement = buildSAMLObject(AuthnStatement.class);
+        authnStatement.setAuthnInstant(now);
+        authnStatement.setSessionIndex("IDX" + UUID.randomUUID());
+        authnStatement.setSessionNotOnOrAfter(notOnOrAfter);
+
+        AuthnContext authnContext = buildSAMLObject(AuthnContext.class);
+        AuthnContextClassRef authnContextClassRef = buildSAMLObject(AuthnContextClassRef.class);
+        authnContextClassRef.setURI(authnContextClassRefValue);
+        authnContext.setAuthnContextClassRef(authnContextClassRef);
+
+        AuthenticatingAuthority authenticatingAuthority = buildSAMLObject(AuthenticatingAuthority.class);
+        authenticatingAuthority.setURI(this.configuration.getIssuerId());
+        authnContext.getAuthenticatingAuthorities().add(authenticatingAuthority);
+        authnStatement.setAuthnContext(authnContext);
+        assertion.getAuthnStatements().add(authnStatement);
+
+        AttributeStatement attributeStatement = buildSAMLObject(AttributeStatement.class);
+        List<Attribute> attributes = attributeStatement.getAttributes();
+        Map<String, List<SAMLAttribute>> groupedSAMLAttributes = samlAttributes.stream().collect(Collectors.groupingBy(SAMLAttribute::getName));
+        groupedSAMLAttributes.forEach((name, values) -> {
+            Attribute attribute = buildSAMLObject(Attribute.class);
+            attribute.setName(name);
+            attribute.setNameFormat("urn:oasis:names:tc:SAML:2.0:attrname-format:uri");
+            attribute.getAttributeValues().addAll(values.stream().map(value -> {
+                XSString xsString = buildSAMLObject(XSString.class);
+                xsString.setValue(value.getValue());
+                return xsString;
+            }).collect(Collectors.toList()));
+            attributes.add(attribute);
+        });
+        assertion.getAttributeStatements().add(attributeStatement);
+
+        this.signObject(assertion, this.signinCredential);
+        response.getAssertions().add(assertion);
+
+        this.signObject(response, this.signinCredential);
+
+        Element element = XMLObjectSupport.marshall(response);
+        String samlResponse = SerializeSupport.nodeToString(element);
+
+        Map<String, Object> model = new HashMap<>();
+        model.put("action", destination);
+        String encoded = EncodingUtils.samlEncode(samlResponse, false);
+        model.put("SAMLResponse", encoded);
+        if (StringUtils.isNotEmpty(relayState)) {
+            model.put("RelayState", EncodingUtils.toISO8859_1(StringEscapeUtils.escapeHtml4(relayState)));
+        }
+
+        servletResponse.setContentType("text/html");
+        servletResponse.setCharacterEncoding(UTF_8.name());
+
+        servletResponse.setHeader("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate");
+        servletResponse.setHeader("Pragma", "no-cache");
+        servletResponse.setHeader("Expires", "0");
+
+        StringWriter out = new StringWriter();
+        velocityEngine.process(POST_BINDING_VM, model, out);
+        servletResponse.getWriter().write(out.toString());
     }
 }
