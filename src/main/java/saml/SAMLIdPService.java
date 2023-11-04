@@ -43,4 +43,5 @@ public interface SAMLIdPService {
                       HttpServletResponse servletResponse);
 
 
+    String metaData(String singleSignOnService, String name, String description, String logoURI);
 }

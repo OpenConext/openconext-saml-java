@@ -21,7 +21,14 @@ import org.opensaml.core.xml.schema.impl.XSStringBuilder;
 import org.opensaml.core.xml.util.XMLObjectSupport;
 import org.opensaml.saml.common.SAMLVersion;
 import org.opensaml.saml.common.SignableSAMLObject;
+import org.opensaml.saml.common.xml.SAMLConstants;
+import org.opensaml.saml.ext.saml2mdui.Description;
+import org.opensaml.saml.ext.saml2mdui.DisplayName;
+import org.opensaml.saml.ext.saml2mdui.Logo;
+import org.opensaml.saml.ext.saml2mdui.UIInfo;
 import org.opensaml.saml.saml2.core.*;
+import org.opensaml.saml.saml2.metadata.Extensions;
+import org.opensaml.saml.saml2.metadata.*;
 import org.opensaml.security.credential.Credential;
 import org.opensaml.security.credential.UsageType;
 import org.opensaml.security.credential.impl.KeyStoreCredentialResolver;
@@ -32,6 +39,7 @@ import org.opensaml.xmlsec.SignatureSigningParameters;
 import org.opensaml.xmlsec.config.impl.DefaultSecurityConfigurationBootstrap;
 import org.opensaml.xmlsec.keyinfo.KeyInfoGenerator;
 import org.opensaml.xmlsec.keyinfo.NamedKeyInfoGeneratorManager;
+import org.opensaml.xmlsec.keyinfo.impl.X509KeyInfoGeneratorFactory;
 import org.opensaml.xmlsec.signature.Signature;
 import org.opensaml.xmlsec.signature.support.*;
 import org.w3c.dom.Document;
@@ -51,6 +59,7 @@ import java.io.StringWriter;
 import java.security.KeyStore;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +69,7 @@ import java.util.stream.Collectors;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static java.nio.charset.StandardCharsets.UTF_8;
+
 
 public class DefaultSAMLIdPService implements SAMLIdPService {
 
@@ -358,5 +368,81 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         StringWriter out = new StringWriter();
         velocityEngine.process(POST_BINDING_VM, model, out);
         servletResponse.getWriter().write(out.toString());
+    }
+
+    @SneakyThrows
+    @Override
+    public String metaData(String singleSignOnServiceURI, String name, String description, String logoURI) {
+        EntityDescriptor entityDescriptor = buildSAMLObject(EntityDescriptor.class);
+        entityDescriptor.setEntityID(this.configuration.getEntityId());
+        entityDescriptor.setID(UUID.randomUUID().toString());
+        entityDescriptor.setValidUntil(Instant.now().plus(2 * 365, ChronoUnit.DAYS));
+
+        IDPSSODescriptor idpssoDescriptor = buildSAMLObject(IDPSSODescriptor.class);
+
+        Extensions extensions = buildSAMLObject(Extensions.class);
+        UIInfo uiInfo = buildSAMLObject(UIInfo.class);
+        List.of("en", "nl").forEach(lang -> {
+                    Description newDescription = buildSAMLObject(Description.class);
+                    newDescription.setValue(description);
+                    newDescription.setXMLLang(lang);
+                    uiInfo.getDescriptions().add(newDescription);
+
+            DisplayName newDisplayName = buildSAMLObject(DisplayName.class);
+            newDisplayName.setValue(description);
+            newDisplayName.setXMLLang(lang);
+            uiInfo.getDisplayNames().add(newDisplayName);
+                }
+        );
+
+        Logo logo = buildSAMLObject(Logo.class);
+        logo.setHeight(160);
+        logo.setWidth(200);
+        logo.setURI(logoURI);
+        uiInfo.getLogos().add(logo);
+
+        extensions.getUnknownXMLObjects().add(uiInfo);
+        idpssoDescriptor.setExtensions(extensions);
+
+        NameIDFormat nameIDFormat = buildSAMLObject(NameIDFormat.class);
+        nameIDFormat.setURI("urn:oasis:names:tc:SAML:2.0:nameid-format:persistent");
+        idpssoDescriptor.getNameIDFormats().add(nameIDFormat);
+
+        idpssoDescriptor.addSupportedProtocol(SAMLConstants.SAML20P_NS);
+
+        SingleSignOnService singleSignOnService = buildSAMLObject(SingleSignOnService.class);
+        singleSignOnService.setLocation(singleSignOnServiceURI);
+        singleSignOnService.setBinding("urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST");
+
+        idpssoDescriptor.getSingleSignOnServices().add(singleSignOnService);
+
+        X509KeyInfoGeneratorFactory keyInfoGeneratorFactory = new X509KeyInfoGeneratorFactory();
+        keyInfoGeneratorFactory.setEmitEntityCertificate(true);
+        KeyInfoGenerator keyInfoGenerator = keyInfoGeneratorFactory.newInstance();
+
+        KeyDescriptor encKeyDescriptor = buildSAMLObject(KeyDescriptor.class);
+        encKeyDescriptor.setUse(UsageType.SIGNING);
+
+        encKeyDescriptor.setKeyInfo(keyInfoGenerator.generate(this.signinCredential));
+
+        idpssoDescriptor.getKeyDescriptors().add(encKeyDescriptor);
+
+        entityDescriptor.getRoleDescriptors().add(idpssoDescriptor);
+
+        Organization organization = buildSAMLObject(Organization.class);
+        OrganizationDisplayName organizationDisplayNameEn = buildSAMLObject(OrganizationDisplayName.class);
+        organizationDisplayNameEn.setValue(name);
+        organizationDisplayNameEn.setXMLLang("en");
+        organization.getDisplayNames().add(organizationDisplayNameEn);
+        OrganizationDisplayName organizationDisplayNameNl = buildSAMLObject(OrganizationDisplayName.class);
+        organizationDisplayNameNl.setValue(name);
+        organizationDisplayNameNl.setXMLLang("nl");
+        organization.getDisplayNames().add(organizationDisplayNameNl);
+        entityDescriptor.setOrganization(organization);
+
+        this.signObject(entityDescriptor, this.signinCredential);
+
+        Element element = XMLObjectSupport.marshall(entityDescriptor);
+        return SerializeSupport.nodeToString(element);
     }
 }

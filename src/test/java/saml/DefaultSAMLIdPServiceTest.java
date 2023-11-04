@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
 import org.opensaml.core.criterion.EntityIdCriterion;
 import org.opensaml.core.xml.schema.XSString;
 import org.opensaml.core.xml.util.XMLObjectSupport;
-import org.opensaml.saml.saml2.core.Attribute;
 import org.opensaml.saml.saml2.core.AuthnRequest;
 import org.opensaml.saml.saml2.core.Response;
 import org.opensaml.security.credential.Credential;
@@ -45,7 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class DefaultSAMLIdPServiceTest {
 
-    private static final DefaultSAMLIdPService openSamlParser;
+    private static final DefaultSAMLIdPService samlIdPService;
     private static final SimpleDateFormat issueFormat = new SimpleDateFormat("yyyy-MM-dd'T'H:mm:ss");
     private static final SAMLConfiguration samlConfiguration;
     private static final Credential signinCredential;
@@ -61,7 +60,7 @@ class DefaultSAMLIdPServiceTest {
                 entityId,
                 false
         );
-        openSamlParser = new DefaultSAMLIdPService(samlConfiguration);
+        samlIdPService = new DefaultSAMLIdPService(samlConfiguration);
         KeyStore keyStore = KeyStoreLocator.createKeyStore(
                 entityId,
                 samlConfiguration.getIdpCertificate(),
@@ -87,8 +86,8 @@ class DefaultSAMLIdPServiceTest {
     private String signedSamlAuthnRequest() {
         String samlRequest = samlAuthnRequest();
 
-        AuthnRequest authnRequest = openSamlParser.parseAuthnRequest(samlRequest, true, true);
-        openSamlParser.signObject(authnRequest, signinCredential);
+        AuthnRequest authnRequest = samlIdPService.parseAuthnRequest(samlRequest, true, true);
+        samlIdPService.signObject(authnRequest, signinCredential);
 
         Element element = XMLObjectSupport.marshall(authnRequest);
         String xml = SerializeSupport.nodeToString(element);
@@ -116,7 +115,7 @@ class DefaultSAMLIdPServiceTest {
     @Test
     void parseAuthnRequest() {
         String samlRequest = this.samlAuthnRequest();
-        AuthnRequest authnRequest = openSamlParser.parseAuthnRequest(samlRequest, true, true);
+        AuthnRequest authnRequest = samlIdPService.parseAuthnRequest(samlRequest, true, true);
         String uri = authnRequest.getScoping().getRequesterIDs().get(0).getURI();
         assertEquals("https://test.surfconext.nl", uri);
     }
@@ -125,7 +124,7 @@ class DefaultSAMLIdPServiceTest {
     @Test
     void parseSignedAuthnRequest() {
         String authnRequestXML = this.signedSamlAuthnRequest();
-        AuthnRequest authnRequest = openSamlParser.parseAuthnRequest(authnRequestXML, true, true);
+        AuthnRequest authnRequest = samlIdPService.parseAuthnRequest(authnRequestXML, true, true);
 
         String uri = authnRequest.getScoping().getRequesterIDs().get(0).getURI();
         assertEquals("https://test.surfconext.nl", uri);
@@ -135,7 +134,7 @@ class DefaultSAMLIdPServiceTest {
     void sendResponse() throws UnsupportedEncodingException {
         String inResponseTo = UUID.randomUUID().toString();
         MockHttpServletResponse httpServletResponse = new MockHttpServletResponse();
-        openSamlParser.sendResponse(
+        samlIdPService.sendResponse(
                 "https://acs",
                 inResponseTo,
                 "urn:specified",
@@ -156,18 +155,30 @@ class DefaultSAMLIdPServiceTest {
         assertEquals("relayState?�", relayState);
 
         String samlResponse = document.select("input[name=\"SAMLResponse\"]").first().attr("value");
-        Response response = openSamlParser.parseResponse(samlResponse, true, false);
-        List<Attribute> attributes = response
+        Response response = samlIdPService.parseResponse(samlResponse, true, false);
+        //damn you, open-saml
+        List<String> group = response
                 .getAssertions().get(0)
                 .getAttributeStatements().get(0)
-                .getAttributes();
-
-        List<String> group = attributes.stream()
+                .getAttributes()
+                .stream()
                 .filter(attribute -> attribute.getName().equals("group")).findAny().get()
                 .getAttributeValues().stream()
                 .map(xmlObject -> ((XSString) xmlObject).getValue())
                 .sorted()
                 .collect(Collectors.toList());
+
         assertEquals(List.of("gliders", "riders"), group);
     }
+
+    @Test
+    void metadata() {
+        String metaData = samlIdPService.metaData(
+                "https://single.sign.on",
+                "Test",
+                "Test description",
+                "https://static.surfconext.nl/media/idp/eduid.png");
+        System.out.println(metaData);
+    }
+
 }
