@@ -46,7 +46,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DefaultSAMLIdPServiceTest {
 
     private static final DefaultSAMLIdPService samlIdPService;
-    private static final SimpleDateFormat issueFormat = new SimpleDateFormat("yyyy-MM-dd'T'H:mm:ss");
+    private static final SimpleDateFormat issueFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
     private static final SAMLConfiguration samlConfiguration;
     private static final Credential signinCredential;
 
