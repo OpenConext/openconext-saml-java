@@ -41,6 +41,7 @@ import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DefaultSAMLIdPServiceTest {
 
@@ -173,12 +174,13 @@ class DefaultSAMLIdPServiceTest {
 
     @Test
     void metadata() {
+        String singleSignOnServiceURI = "https://single.sign.on";
         String metaData = samlIdPService.metaData(
-                "https://single.sign.on",
+                singleSignOnServiceURI,
                 "Test",
                 "Test description",
                 "https://static.surfconext.nl/media/idp/eduid.png");
-        System.out.println(metaData);
+        assertTrue(metaData.contains(singleSignOnServiceURI));
     }
 
 }

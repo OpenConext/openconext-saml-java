@@ -430,14 +430,12 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         entityDescriptor.getRoleDescriptors().add(idpssoDescriptor);
 
         Organization organization = buildSAMLObject(Organization.class);
-        OrganizationDisplayName organizationDisplayNameEn = buildSAMLObject(OrganizationDisplayName.class);
-        organizationDisplayNameEn.setValue(name);
-        organizationDisplayNameEn.setXMLLang("en");
-        organization.getDisplayNames().add(organizationDisplayNameEn);
-        OrganizationDisplayName organizationDisplayNameNl = buildSAMLObject(OrganizationDisplayName.class);
-        organizationDisplayNameNl.setValue(name);
-        organizationDisplayNameNl.setXMLLang("nl");
-        organization.getDisplayNames().add(organizationDisplayNameNl);
+        List.of("en", "nl").forEach(lang -> {
+            OrganizationDisplayName organizationDisplayName = buildSAMLObject(OrganizationDisplayName.class);
+            organizationDisplayName.setValue(name);
+            organizationDisplayName.setXMLLang(lang);
+            organization.getDisplayNames().add(organizationDisplayName);
+        });
         entityDescriptor.setOrganization(organization);
 
         this.signObject(entityDescriptor, this.signinCredential);
