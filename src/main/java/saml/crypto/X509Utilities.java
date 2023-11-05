@@ -22,6 +22,9 @@ public class X509Utilities {
     public static final String BEGIN_KEY = "-----BEGIN RSA PRIVATE KEY-----\n";
     public static final String END_KEY = "-----END RSA PRIVATE KEY-----";
 
+    private X509Utilities() {
+    }
+
     public static byte[] getDER(String pem) {
         String data = keyCleanup(pem);
 

@@ -375,7 +375,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
     public String metaData(String singleSignOnServiceURI, String name, String description, String logoURI) {
         EntityDescriptor entityDescriptor = buildSAMLObject(EntityDescriptor.class);
         entityDescriptor.setEntityID(this.configuration.getEntityId());
-        entityDescriptor.setID(UUID.randomUUID().toString());
+        entityDescriptor.setID("M" + UUID.randomUUID());
         entityDescriptor.setValidUntil(Instant.now().plus(2 * 365, ChronoUnit.DAYS));
 
         IDPSSODescriptor idpssoDescriptor = buildSAMLObject(IDPSSODescriptor.class);
@@ -388,10 +388,10 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
                     newDescription.setXMLLang(lang);
                     uiInfo.getDescriptions().add(newDescription);
 
-            DisplayName newDisplayName = buildSAMLObject(DisplayName.class);
-            newDisplayName.setValue(description);
-            newDisplayName.setXMLLang(lang);
-            uiInfo.getDisplayNames().add(newDisplayName);
+                    DisplayName newDisplayName = buildSAMLObject(DisplayName.class);
+                    newDisplayName.setValue(description);
+                    newDisplayName.setXMLLang(lang);
+                    uiInfo.getDisplayNames().add(newDisplayName);
                 }
         );
 
@@ -431,10 +431,20 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
 
         Organization organization = buildSAMLObject(Organization.class);
         List.of("en", "nl").forEach(lang -> {
+            OrganizationName organizationName = buildSAMLObject(OrganizationName.class);
+            organizationName.setValue(name);
+            organizationName.setXMLLang(lang);
+            organization.getOrganizationNames().add(organizationName);
+
             OrganizationDisplayName organizationDisplayName = buildSAMLObject(OrganizationDisplayName.class);
             organizationDisplayName.setValue(name);
             organizationDisplayName.setXMLLang(lang);
             organization.getDisplayNames().add(organizationDisplayName);
+
+            OrganizationURL organizationURL = buildSAMLObject(OrganizationURL.class);
+            organizationURL.setURI("https://www.surf.nl/" + (lang.equals("en") ? "en" : ""));
+            organizationURL.setXMLLang(lang);
+            organization.getURLs().add(organizationURL);
         });
         entityDescriptor.setOrganization(organization);
 

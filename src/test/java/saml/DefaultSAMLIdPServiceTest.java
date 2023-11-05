@@ -28,7 +28,6 @@ import saml.model.SAMLStatus;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.security.KeyStore;
 import java.text.SimpleDateFormat;
@@ -131,8 +130,9 @@ class DefaultSAMLIdPServiceTest {
         assertEquals("https://test.surfconext.nl", uri);
     }
 
+    @SneakyThrows
     @Test
-    void sendResponse() throws UnsupportedEncodingException {
+    void sendResponse() {
         String inResponseTo = UUID.randomUUID().toString();
         MockHttpServletResponse httpServletResponse = new MockHttpServletResponse();
         samlIdPService.sendResponse(
