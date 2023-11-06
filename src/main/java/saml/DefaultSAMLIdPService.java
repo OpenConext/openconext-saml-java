@@ -468,7 +468,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
     @Override
     public SAMLServiceProvider resolveSigningCredential(SAMLServiceProvider serviceProvider) {
         try {
-            String xml = IOUtils.toString(new URL(serviceProvider.getMetaDataUrl()), Charset.defaultCharset().name());
+            String xml = IOUtils.toString(new URL(serviceProvider.getMetaDataUrl()), Charset.defaultCharset());
             EntityDescriptor entityDescriptor = (EntityDescriptor) this.parseXMLObject(xml, false, false);
             String acsLocation = entityDescriptor.getSPSSODescriptor(SAMLConstants.SAML20P_NS).getAssertionConsumerServices().get(0).getLocation();
             serviceProvider.setAcsLocation(acsLocation);
