@@ -179,6 +179,16 @@ class DefaultSAMLIdPServiceTest {
 
     @SneakyThrows
     @Test
+    void acsLocationInvalid() {
+        String samlRequestTemplate = readFile("authn_request.xml");
+        String samlRequest = String.format(samlRequestTemplate, UUID.randomUUID(), issueFormat.format(new Date()), spEntityId);
+        samlRequest = samlRequest.replace("https://engine.test.surfconext.nl/authentication/sp/consume-assertion","https://nope");
+        String encodedSamlRequest = deflatedBase64encoded(samlRequest);
+        assertThrows(IllegalArgumentException.class,() -> samlIdPService.parseAuthnRequest(encodedSamlRequest, true, true)) ;
+    }
+
+    @SneakyThrows
+    @Test
     void parseSignedAuthnRequest() {
         String authnRequestXML = this.signedSamlAuthnRequest();
         AuthnRequest authnRequest = samlIdPService.parseAuthnRequest(authnRequestXML, true, true);

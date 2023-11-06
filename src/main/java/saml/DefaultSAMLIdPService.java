@@ -199,6 +199,10 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
     public AuthnRequest parseAuthnRequest(String xml, boolean encoded, boolean deflated) {
         AuthnRequest authnRequest = (AuthnRequest) parseXMLObject(xml, encoded, deflated);
         SAMLServiceProvider serviceProvider = this.getSAMLServiceProvider(authnRequest.getIssuer().getValue());
+        if (!serviceProvider.getAcsLocation().equalsIgnoreCase(authnRequest.getAssertionConsumerServiceURL())) {
+            throw new IllegalArgumentException(String.format("ACS locations (%s, %s) does not match", serviceProvider.getAcsLocation(),
+                    authnRequest.getAssertionConsumerServiceURL()));
+        }
         this.validateSignature(authnRequest, serviceProvider.getCredential());
         return authnRequest;
     }
