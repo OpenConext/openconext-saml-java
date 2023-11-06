@@ -8,6 +8,9 @@ import java.security.cert.Certificate;
 
 public class KeyStoreLocator {
 
+    private KeyStoreLocator() {
+    }
+
     @SneakyThrows
     public static KeyStore createKeyStore(String name, String certificate, String privateKey, String passPhrase) {
         KeyStore ks = KeyStore.getInstance("JKS");

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" ID="M36af3a97-94d7-4de2-934c-80c1b43485a9"
+                     entityID="https://engine.test.surfconext.nl/authentication/sp/metadata"
+                     validUntil="2033-11-03T13:17:12.516Z">
+    <ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+        <ds:SignedInfo>
+            <ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+            <ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha512"/>
+            <ds:Reference URI="#M36af3a97-94d7-4de2-934c-80c1b43485a9">
+                <ds:Transforms>
+                    <ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
+                    <ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+                </ds:Transforms>
+                <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha512"/>
+                <ds:DigestValue>1LLBfr6ucKsMsriz0VOD9dM7AZ8vxE67oZxFQEV5IJ76j/I5XMpwHVxATQLv3aO8XJArxtDdOUMX&#13;
+                    AmASE0e3jw==
+                </ds:DigestValue>
+            </ds:Reference>
+        </ds:SignedInfo>
+        <ds:SignatureValue>
+            dCXe9ecjmjti92X984iKkold9FuxwOR4dcm4GhFU1TRjbwt9Gq2PfpYQID5W2N3eWv1EUayHDOyr&#13;
+            uH4sJuVt6aHV/YT4by6pE8aej+8/Aa0rSJUW0GT+IUhF2fDxSD+usswaDVLh+BgnDO85vBP+6Im8&#13;
+            7X4bvvYefo9QixMIetm7sBODWeGUtTPGV3tIlCUixJAzH/7gjDY2JKO9JSFql6vN1c9zAMExBAwj&#13;
+            aGeMFopcMUV/fQgfKk6FAuqds0iRmP885KCvrYdAlsQcHapmFM9Pyi4suA2WNZff0bfX2XoWa8nw&#13;
+            dSMDXuOe+rbxIwaIVcFFeoDyOGYnjw3ZX1K01A==
+        </ds:SignatureValue>
+        <ds:KeyInfo>
+            <ds:X509Data>
+                <ds:X509Certificate>MIIDITCCAgmgAwIBAgIUbORzQxwpN+XKnBnBKliIQNWq8VAwDQYJKoZIhvcNAQELBQAwIDEeMBwG
+                    A1UECgwVT3JnYW5pemF0aW9uLCBDTj1TVVJGMB4XDTIzMTEwNjEyNTM0NVoXDTI0MTEwNTEyNTM0
+                    NVowIDEeMBwGA1UECgwVT3JnYW5pemF0aW9uLCBDTj1TVVJGMIIBIjANBgkqhkiG9w0BAQEFAAOC
+                    AQ8AMIIBCgKCAQEAqFXZkiYjHpotLxmWzcBknAOwvKYTnelryw+LBB+BU+LCvpoT309cEo6D6kYI
+                    Xte+kAt8p+hkumX9O5P3V/GH2TF4Bx1v0kdkRzetyI3x/YoXkbho73X0jOCGUyazgIDmOX53phx/
+                    zDORH8mK1nDf6NT4huaeGIbyAHN2J1PoG+oh5RwOLJ92eFyNgaaRh2UCaxX3T64SrXoITjho3vhk
+                    oGkF2dgB61RBG3yh4JX4lpDIVtQzqDnTp/eVZ3fUsoHulCN1uvjNjdeUQuayU4ABKhYSyjqgdOha
+                    BLEYHMIaTJqnDb0HpeF9eMd2l4NxZezt8c4R/j4bx4J54mbWkIvC2QIDAQABo1MwUTAdBgNVHQ4E
+                    FgQUmv7wV57dp1tG6fnFEfNBq7nL2LMwHwYDVR0jBBgwFoAUmv7wV57dp1tG6fnFEfNBq7nL2LMw
+                    DwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAiK1F2mME2irf+tcbcYgX5Roi6dwm
+                    RqsX7JkO25Oj+cepbAFMHMdTYUizHum7Ffx3yw8UeDUcbAa3IvSEGNwk6+oJoMY+fwwQuUBiIxfR
+                    T89QlfeLAmpwE3f/v1LegaAaFH6Dg/q9WvrSa0njpxA5V6ff2YLmzuKcOxQx7j5u/pMaTGkGDt6q
+                    yc0P5JF1gS4Sbeb3lsxUiJUyEsFs/ePiPmbkIufyoCM9fMa+JwGO+q1XSfBJkpU7Tb0ZoRXxbRRv
+                    eu+UskdgqO3NDa3fCIfhQnIFLvIEd99mFUK9Hm+bpvF29wXlgPgFe2fDd+bXIaoL/KPZ6GrJibEF
+                    MqtQ+g7vyw==
+                </ds:X509Certificate>
+            </ds:X509Data>
+        </ds:KeyInfo>
+    </ds:Signature>
+    <md:SPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
+        <md:KeyDescriptor use="signing">
+            <ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+                <ds:X509Data>
+                    <ds:X509Certificate>MIIDITCCAgmgAwIBAgIUbORzQxwpN+XKnBnBKliIQNWq8VAwDQYJKoZIhvcNAQELBQAwIDEeMBwG
+                        A1UECgwVT3JnYW5pemF0aW9uLCBDTj1TVVJGMB4XDTIzMTEwNjEyNTM0NVoXDTI0MTEwNTEyNTM0
+                        NVowIDEeMBwGA1UECgwVT3JnYW5pemF0aW9uLCBDTj1TVVJGMIIBIjANBgkqhkiG9w0BAQEFAAOC
+                        AQ8AMIIBCgKCAQEAqFXZkiYjHpotLxmWzcBknAOwvKYTnelryw+LBB+BU+LCvpoT309cEo6D6kYI
+                        Xte+kAt8p+hkumX9O5P3V/GH2TF4Bx1v0kdkRzetyI3x/YoXkbho73X0jOCGUyazgIDmOX53phx/
+                        zDORH8mK1nDf6NT4huaeGIbyAHN2J1PoG+oh5RwOLJ92eFyNgaaRh2UCaxX3T64SrXoITjho3vhk
+                        oGkF2dgB61RBG3yh4JX4lpDIVtQzqDnTp/eVZ3fUsoHulCN1uvjNjdeUQuayU4ABKhYSyjqgdOha
+                        BLEYHMIaTJqnDb0HpeF9eMd2l4NxZezt8c4R/j4bx4J54mbWkIvC2QIDAQABo1MwUTAdBgNVHQ4E
+                        FgQUmv7wV57dp1tG6fnFEfNBq7nL2LMwHwYDVR0jBBgwFoAUmv7wV57dp1tG6fnFEfNBq7nL2LMw
+                        DwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAiK1F2mME2irf+tcbcYgX5Roi6dwm
+                        RqsX7JkO25Oj+cepbAFMHMdTYUizHum7Ffx3yw8UeDUcbAa3IvSEGNwk6+oJoMY+fwwQuUBiIxfR
+                        T89QlfeLAmpwE3f/v1LegaAaFH6Dg/q9WvrSa0njpxA5V6ff2YLmzuKcOxQx7j5u/pMaTGkGDt6q
+                        yc0P5JF1gS4Sbeb3lsxUiJUyEsFs/ePiPmbkIufyoCM9fMa+JwGO+q1XSfBJkpU7Tb0ZoRXxbRRv
+                        eu+UskdgqO3NDa3fCIfhQnIFLvIEd99mFUK9Hm+bpvF29wXlgPgFe2fDd+bXIaoL/KPZ6GrJibEF
+                        MqtQ+g7vyw==
+                    </ds:X509Certificate>
+                </ds:X509Data>
+            </ds:KeyInfo>
+        </md:KeyDescriptor>
+        <md:NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:persistent</md:NameIDFormat>
+        <md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+                                     Location="https://engine.test.surfconext.nl/authentication/sp/consume-assertion"/>
+    </md:SPSSODescriptor>
+</md:EntityDescriptor>

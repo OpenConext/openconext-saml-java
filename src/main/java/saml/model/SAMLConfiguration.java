@@ -4,16 +4,13 @@ package saml.model;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
+import java.util.List;
+
 @Getter
 @AllArgsConstructor
 public class SAMLConfiguration {
 
-    private String idpCertificate;
-    private String idpPrivateKey;
-    private String entityId;
-    private String spAudience;
-    private String spCertificate;
-    private String issuerId;
+    private SAMLIdentityProvider identityProvider;
+    private List<SAMLServiceProvider> serviceProviders;
     private boolean requiresSignedAuthnRequest;
-
 }

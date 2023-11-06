@@ -4,7 +4,7 @@ import lombok.SneakyThrows;
 import net.shibboleth.utilities.java.support.resolver.CriteriaSet;
 import net.shibboleth.utilities.java.support.xml.BasicParserPool;
 import net.shibboleth.utilities.java.support.xml.SerializeSupport;
-import net.shibboleth.utilities.java.support.xml.XMLParserException;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringEscapeUtils;
 import org.opensaml.core.config.ConfigurationService;
@@ -15,7 +15,6 @@ import org.opensaml.core.xml.config.XMLObjectProviderRegistry;
 import org.opensaml.core.xml.config.XMLObjectProviderRegistrySupport;
 import org.opensaml.core.xml.io.Marshaller;
 import org.opensaml.core.xml.io.UnmarshallerFactory;
-import org.opensaml.core.xml.io.UnmarshallingException;
 import org.opensaml.core.xml.schema.XSString;
 import org.opensaml.core.xml.schema.impl.XSStringBuilder;
 import org.opensaml.core.xml.util.XMLObjectSupport;
@@ -34,28 +33,31 @@ import org.opensaml.security.credential.UsageType;
 import org.opensaml.security.credential.impl.KeyStoreCredentialResolver;
 import org.opensaml.security.criteria.UsageCriterion;
 import org.opensaml.security.x509.BasicX509Credential;
-import org.opensaml.security.x509.X509Credential;
 import org.opensaml.xmlsec.SignatureSigningParameters;
 import org.opensaml.xmlsec.config.impl.DefaultSecurityConfigurationBootstrap;
 import org.opensaml.xmlsec.keyinfo.KeyInfoGenerator;
 import org.opensaml.xmlsec.keyinfo.NamedKeyInfoGeneratorManager;
 import org.opensaml.xmlsec.keyinfo.impl.X509KeyInfoGeneratorFactory;
 import org.opensaml.xmlsec.signature.Signature;
+import org.opensaml.xmlsec.signature.X509Certificate;
 import org.opensaml.xmlsec.signature.support.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import saml.crypto.KeyStoreLocator;
 import saml.crypto.X509Utilities;
-import saml.model.SAMLAttribute;
-import saml.model.SAMLConfiguration;
-import saml.model.SAMLStatus;
+import saml.model.*;
 import saml.parser.EncodingUtils;
 import saml.parser.OpenSamlVelocityEngine;
 
 import javax.servlet.http.HttpServletResponse;
 import javax.xml.namespace.QName;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.StringWriter;
+import java.net.URL;
+import java.nio.charset.Charset;
 import java.security.KeyStore;
 import java.time.Duration;
 import java.time.Instant;
@@ -75,6 +77,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
 
     public static final String authnContextClassRefPassword = "urn:oasis:names:tc:SAML:2.0:ac:classes:Password";
     private static final String POST_BINDING_VM = "/templates/saml2-post-binding.vm";
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultSAMLIdPService.class);
 
     static {
         java.security.Security.addProvider(
@@ -84,27 +87,34 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
 
     private final OpenSamlVelocityEngine velocityEngine = new OpenSamlVelocityEngine();
     private final BasicParserPool parserPool;
-    private final X509Credential signatureValidationCredential;
+    private final Map<String, SAMLServiceProvider> serviceProviders;
     private final SAMLConfiguration configuration;
     private final Duration skewTime = Duration.ofMinutes(5);
-    private final Credential signinCredential;
+    private final Credential signingCredential;
 
     @SneakyThrows
     public DefaultSAMLIdPService(SAMLConfiguration configuration) {
-        this.signatureValidationCredential = loadPublicKey(configuration.getSpCertificate());
-        String entityId = configuration.getEntityId();
+        SAMLIdentityProvider identityProvider = configuration.getIdentityProvider();
+        String entityId = identityProvider.getEntityId();
+        String secret = "secret";
         KeyStore keyStore = KeyStoreLocator.createKeyStore(
                 entityId,
-                configuration.getIdpCertificate(),
-                configuration.getIdpPrivateKey(),
-                "secret"
+                identityProvider.getCertificate(),
+                identityProvider.getPrivateKey(),
+                secret
         );
-        KeyStoreCredentialResolver resolver = new KeyStoreCredentialResolver(keyStore, Map.of(entityId, "secret"), UsageType.SIGNING);
-        this.signinCredential = resolver.resolveSingle(new CriteriaSet(new EntityIdCriterion(entityId), new UsageCriterion(UsageType.SIGNING)));
+        KeyStoreCredentialResolver resolver = new KeyStoreCredentialResolver(keyStore, Map.of(entityId, secret), UsageType.SIGNING);
+        this.signingCredential = resolver.resolveSingle(new CriteriaSet(new EntityIdCriterion(entityId), new UsageCriterion(UsageType.SIGNING)));
 
         this.parserPool = new BasicParserPool();
         this.configuration = configuration;
+        //Must first bootstrap before we can parse service-providers
         bootstrap();
+        this.serviceProviders = configuration.getServiceProviders().stream()
+                .collect(Collectors.toMap(
+                        SAMLServiceProvider::getEntityId,
+                        this::resolveSigningCredential
+                ));
     }
 
     @SneakyThrows
@@ -129,17 +139,11 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
 
         InitializationService.initialize();
 
-        XMLObjectProviderRegistry registry;
         synchronized (ConfigurationService.class) {
-            registry = ConfigurationService.get(XMLObjectProviderRegistry.class);
-            if (registry == null) {
-                registry = new XMLObjectProviderRegistry();
-                ConfigurationService.register(XMLObjectProviderRegistry.class, registry);
-            }
+            XMLObjectProviderRegistry registry = ConfigurationService.get(XMLObjectProviderRegistry.class);
+            registry.setParserPool(parserPool);
         }
-        registry.setParserPool(parserPool);
     }
-
 
     private UnmarshallerFactory getUnmarshallerFactory() {
         return XMLObjectProviderRegistrySupport.getUnmarshallerFactory();
@@ -160,19 +164,28 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
     }
 
     @SneakyThrows
-    protected void validateSignature(SignableSAMLObject target) {
+    private void validateSignature(SignableSAMLObject target, Credential credential) {
         Signature signature = target.getSignature();
-
         if (signature == null) {
             if (this.configuration.isRequiresSignedAuthnRequest()) {
                 throw new SignatureException("Signature element not found.");
             }
         } else {
-            SignatureValidator.validate(signature, this.signatureValidationCredential);
+
+            SignatureValidator.validate(signature, credential);
         }
     }
 
-    private XMLObject parseXMLObject(String xml, boolean encoded, boolean deflated) throws XMLParserException, UnmarshallingException {
+    private SAMLServiceProvider getSAMLServiceProvider(String entityId) {
+        return this.serviceProviders
+                .computeIfAbsent(entityId, key -> this.resolveSigningCredential(this.configuration.getServiceProviders().stream()
+                        .filter(samlServiceProvider -> samlServiceProvider.getEntityId().equals(entityId))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalArgumentException("Unknown SP entity: " + entityId))));
+    }
+
+    @SneakyThrows
+    private XMLObject parseXMLObject(String xml, boolean encoded, boolean deflated) {
         if (encoded) {
             xml = EncodingUtils.samlDecode(xml, deflated);
         }
@@ -185,22 +198,16 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
     @SneakyThrows
     public AuthnRequest parseAuthnRequest(String xml, boolean encoded, boolean deflated) {
         AuthnRequest authnRequest = (AuthnRequest) parseXMLObject(xml, encoded, deflated);
-
-        this.validateSignature(authnRequest);
+        SAMLServiceProvider serviceProvider = this.getSAMLServiceProvider(authnRequest.getIssuer().getValue());
+        this.validateSignature(authnRequest, serviceProvider.getCredential());
         return authnRequest;
     }
 
     @SneakyThrows
-    public Response parseResponse(String xml, boolean encoded, boolean deflated) {
-        Response response = (Response) parseXMLObject(xml, encoded, deflated);
-
-        this.validateSignature(response);
+    public Response parseResponse(String xml) {
+        Response response = (Response) parseXMLObject(xml, true, false);
+        this.validateSignature(response, this.signingCredential);
         return response;
-    }
-
-    private static X509Credential loadPublicKey(String certificate) throws Exception {
-        byte[] certBytes = X509Utilities.getDER(certificate);
-        return new BasicX509Credential(X509Utilities.getCertificate(certBytes));
     }
 
     private KeyInfoGenerator getKeyInfoGenerator(Credential credential) {
@@ -237,7 +244,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
 
     @SneakyThrows
     @Override
-    public void sendResponse(String destination,
+    public void sendResponse(String entityId,
                              String inResponseTo,
                              String nameId,
                              SAMLStatus status,
@@ -246,18 +253,21 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
                              String authnContextClassRefValue,
                              List<SAMLAttribute> samlAttributes,
                              HttpServletResponse servletResponse) {
+        SAMLServiceProvider serviceProvider = this.getSAMLServiceProvider(entityId);
+
         Instant now = Instant.now();
         Instant notOnOrAfter = now.minus(skewTime);
         Instant notBefore = now.plus(skewTime);
         //Very cumbersome Open-SAML interface, can't be helped
         Response response = buildSAMLObject(Response.class);
-        response.setDestination(destination);
+        String acsLocation = serviceProvider.getAcsLocation();
+        response.setDestination(acsLocation);
         response.setID("RP" + UUID.randomUUID());
         response.setInResponseTo(inResponseTo);
         response.setIssueInstant(now);
 
         Issuer issuer = buildSAMLObject(Issuer.class);
-        issuer.setValue(this.configuration.getIssuerId());
+        issuer.setValue(this.configuration.getIdentityProvider().getEntityId());
         response.setIssuer(issuer);
         response.setVersion(SAMLVersion.VERSION_20);
 
@@ -274,7 +284,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         Assertion assertion = buildSAMLObject(Assertion.class);
         // Can't re-use, because it is already the child of another XML Object
         Issuer newIssuer = buildSAMLObject(Issuer.class);
-        newIssuer.setValue(this.configuration.getIssuerId());
+        newIssuer.setValue(this.configuration.getIdentityProvider().getEntityId());
         assertion.setIssuer(newIssuer);
         assertion.setID("A" + UUID.randomUUID());
         assertion.setIssueInstant(now);
@@ -284,7 +294,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         NameID nameID = buildSAMLObject(NameID.class);
         nameID.setValue(nameId);
         nameID.setFormat("urn:oasis:names:tc:SAML:2.0:nameid-format:persistent");
-        nameID.setSPNameQualifier(this.configuration.getSpAudience());
+        nameID.setSPNameQualifier(entityId);
         subject.setNameID(nameID);
 
         SubjectConfirmation subjectConfirmation = buildSAMLObject(SubjectConfirmation.class);
@@ -293,7 +303,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         subjectConfirmationData.setInResponseTo(inResponseTo);
         subjectConfirmationData.setNotOnOrAfter(notOnOrAfter);
         subjectConfirmationData.setNotBefore(notBefore);
-        subjectConfirmationData.setRecipient(destination);
+        subjectConfirmationData.setRecipient(acsLocation);
         subjectConfirmation.setSubjectConfirmationData(subjectConfirmationData);
         subject.getSubjectConfirmations().add(subjectConfirmation);
         assertion.setSubject(subject);
@@ -303,7 +313,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         conditions.setNotOnOrAfter(notOnOrAfter);
         AudienceRestriction audienceRestriction = buildSAMLObject(AudienceRestriction.class);
         Audience audience = buildSAMLObject(Audience.class);
-        audience.setURI(this.configuration.getSpAudience());
+        audience.setURI(entityId);
         audienceRestriction.getAudiences().add(audience);
         conditions.getAudienceRestrictions().add(audienceRestriction);
         assertion.setConditions(conditions);
@@ -319,7 +329,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         authnContext.setAuthnContextClassRef(authnContextClassRef);
 
         AuthenticatingAuthority authenticatingAuthority = buildSAMLObject(AuthenticatingAuthority.class);
-        authenticatingAuthority.setURI(this.configuration.getIssuerId());
+        authenticatingAuthority.setURI(entityId);
         authnContext.getAuthenticatingAuthorities().add(authenticatingAuthority);
         authnStatement.setAuthnContext(authnContext);
         assertion.getAuthnStatements().add(authnStatement);
@@ -342,17 +352,17 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         });
         assertion.getAttributeStatements().add(attributeStatement);
 
-        this.signObject(assertion, this.signinCredential);
+        this.signObject(assertion, this.signingCredential);
         response.getAssertions().add(assertion);
 
-        this.signObject(response, this.signinCredential);
+        this.signObject(response, this.signingCredential);
 
         Element element = XMLObjectSupport.marshall(response);
         String samlResponse = SerializeSupport.nodeToString(element);
 
         Map<String, Object> model = new HashMap<>();
-        model.put("action", destination);
-        String encoded = EncodingUtils.samlEncode(samlResponse, false);
+        model.put("action", acsLocation);
+        String encoded = EncodingUtils.samlEncode(samlResponse);
         model.put("SAMLResponse", encoded);
         if (StringUtils.isNotEmpty(relayState)) {
             model.put("RelayState", EncodingUtils.toISO8859_1(StringEscapeUtils.escapeHtml4(relayState)));
@@ -374,7 +384,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
     @Override
     public String metaData(String singleSignOnServiceURI, String name, String description, String logoURI) {
         EntityDescriptor entityDescriptor = buildSAMLObject(EntityDescriptor.class);
-        entityDescriptor.setEntityID(this.configuration.getEntityId());
+        entityDescriptor.setEntityID(this.configuration.getIdentityProvider().getEntityId());
         entityDescriptor.setID("M" + UUID.randomUUID());
         entityDescriptor.setValidUntil(Instant.now().plus(2 * 365, ChronoUnit.DAYS));
 
@@ -423,7 +433,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         KeyDescriptor encKeyDescriptor = buildSAMLObject(KeyDescriptor.class);
         encKeyDescriptor.setUse(UsageType.SIGNING);
 
-        encKeyDescriptor.setKeyInfo(keyInfoGenerator.generate(this.signinCredential));
+        encKeyDescriptor.setKeyInfo(keyInfoGenerator.generate(this.signingCredential));
 
         idpssoDescriptor.getKeyDescriptors().add(encKeyDescriptor);
 
@@ -448,9 +458,76 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         });
         entityDescriptor.setOrganization(organization);
 
-        this.signObject(entityDescriptor, this.signinCredential);
+        this.signObject(entityDescriptor, this.signingCredential);
 
         Element element = XMLObjectSupport.marshall(entityDescriptor);
         return SerializeSupport.nodeToString(element);
     }
+
+    @SneakyThrows
+    @Override
+    public SAMLServiceProvider resolveSigningCredential(SAMLServiceProvider serviceProvider) {
+        try {
+            String xml = IOUtils.toString(new URL(serviceProvider.getMetaDataUrl()), Charset.defaultCharset().name());
+            EntityDescriptor entityDescriptor = (EntityDescriptor) this.parseXMLObject(xml, false, false);
+            String acsLocation = entityDescriptor.getSPSSODescriptor(SAMLConstants.SAML20P_NS).getAssertionConsumerServices().get(0).getLocation();
+            serviceProvider.setAcsLocation(acsLocation);
+
+            KeyDescriptor keyDescriptor = entityDescriptor.getSPSSODescriptor("urn:oasis:names:tc:SAML:2.0:protocol")
+                    .getKeyDescriptors().stream().filter(kd -> kd.getUse().getValue().equals("signing"))
+                    .findFirst().orElseThrow(IllegalArgumentException::new);
+            X509Certificate x509Certificate = keyDescriptor.getKeyInfo().getX509Datas().get(0).getX509Certificates().get(0);
+
+            byte[] certBytes = X509Utilities.getDER(x509Certificate.getValue());
+            java.security.cert.X509Certificate certificate = X509Utilities.getCertificate(certBytes);
+
+            Credential signingCredential = new BasicX509Credential(certificate);
+            serviceProvider.setCredential(signingCredential);
+
+            return serviceProvider;
+        } catch (RuntimeException | IOException e) {
+            LOG.error("Error in resolving MetaData for metaData URL:" + serviceProvider.getMetaDataUrl(), e);
+            return null;
+        }
+    }
+
+    @SneakyThrows
+    protected String serviceProviderMetaData(SAMLServiceProvider serviceProvider) {
+        EntityDescriptor entityDescriptor = buildSAMLObject(EntityDescriptor.class);
+        entityDescriptor.setEntityID(serviceProvider.getEntityId());
+        entityDescriptor.setID("M" + UUID.randomUUID());
+        entityDescriptor.setValidUntil(Instant.now().plus(10 * 365, ChronoUnit.DAYS));
+
+        SPSSODescriptor spssoDescriptor = buildSAMLObject(SPSSODescriptor.class);
+
+        NameIDFormat nameIDFormat = buildSAMLObject(NameIDFormat.class);
+        nameIDFormat.setURI("urn:oasis:names:tc:SAML:2.0:nameid-format:persistent");
+        spssoDescriptor.getNameIDFormats().add(nameIDFormat);
+
+        spssoDescriptor.addSupportedProtocol(SAMLConstants.SAML20P_NS);
+
+        AssertionConsumerService assertionConsumerService = buildSAMLObject(AssertionConsumerService.class);
+        assertionConsumerService.setLocation(serviceProvider.getAcsLocation());
+        assertionConsumerService.setBinding("urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST");
+
+        spssoDescriptor.getAssertionConsumerServices().add(assertionConsumerService);
+
+        X509KeyInfoGeneratorFactory keyInfoGeneratorFactory = new X509KeyInfoGeneratorFactory();
+        keyInfoGeneratorFactory.setEmitEntityCertificate(true);
+        KeyInfoGenerator keyInfoGenerator = keyInfoGeneratorFactory.newInstance();
+
+        KeyDescriptor encKeyDescriptor = buildSAMLObject(KeyDescriptor.class);
+        encKeyDescriptor.setUse(UsageType.SIGNING);
+
+        encKeyDescriptor.setKeyInfo(keyInfoGenerator.generate(serviceProvider.getCredential()));
+
+        spssoDescriptor.getKeyDescriptors().add(encKeyDescriptor);
+
+        entityDescriptor.getRoleDescriptors().add(spssoDescriptor);
+        this.signObject(entityDescriptor, serviceProvider.getCredential());
+
+        Element element = XMLObjectSupport.marshall(entityDescriptor);
+        return SerializeSupport.nodeToString(element);
+    }
+
 }

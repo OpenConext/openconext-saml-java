@@ -6,7 +6,7 @@
         ProtocolBinding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Version="2.0"
         xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion"
         xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol">
-    <saml:Issuer>https://engine.test.surfconext.nl/authentication/sp/metadata</saml:Issuer>
+    <saml:Issuer>%s</saml:Issuer>
     <samlp:NameIDPolicy AllowCreate="true"
                         Format="urn:mace:dir:attribute-def:eduPersonPrincipalName"/>
     <samlp:Scoping>

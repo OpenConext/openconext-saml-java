@@ -24,15 +24,6 @@ public class EncodingUtils {
     }
 
     @SneakyThrows
-    private static byte[] deflate(String s) {
-        ByteArrayOutputStream b = new ByteArrayOutputStream();
-        DeflaterOutputStream deflater = new DeflaterOutputStream(b, new Deflater(DEFLATED, true));
-        deflater.write(s.getBytes(UTF_8));
-        deflater.finish();
-        return b.toByteArray();
-    }
-
-    @SneakyThrows
     private static String inflate(byte[] b) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         InflaterOutputStream iout = new InflaterOutputStream(out, new Inflater(true));
@@ -41,9 +32,8 @@ public class EncodingUtils {
         return out.toString(UTF_8);
     }
 
-    public static String samlEncode(String s, boolean deflate) {
-        byte[] b = deflate ? EncodingUtils.deflate(s) : s.getBytes(UTF_8);
-        return UN_CHUNKED_ENCODER.encodeToString(b);
+    public static String samlEncode(String s) {
+        return UN_CHUNKED_ENCODER.encodeToString(s.getBytes(UTF_8));
     }
 
     public static String toISO8859_1(String text) {

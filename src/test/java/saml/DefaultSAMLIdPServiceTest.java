@@ -8,7 +8,9 @@ import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.IOUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.opensaml.core.criterion.EntityIdCriterion;
 import org.opensaml.core.xml.schema.XSString;
 import org.opensaml.core.xml.util.XMLObjectSupport;
@@ -18,12 +20,11 @@ import org.opensaml.security.credential.Credential;
 import org.opensaml.security.credential.UsageType;
 import org.opensaml.security.credential.impl.KeyStoreCredentialResolver;
 import org.opensaml.security.criteria.UsageCriterion;
+import org.opensaml.xmlsec.signature.support.SignatureException;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.w3c.dom.Element;
 import saml.crypto.KeyStoreLocator;
-import saml.model.SAMLAttribute;
-import saml.model.SAMLConfiguration;
-import saml.model.SAMLStatus;
+import saml.model.*;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -39,46 +40,83 @@ import java.util.stream.Collectors;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 class DefaultSAMLIdPServiceTest {
 
-    private static final DefaultSAMLIdPService samlIdPService;
     private static final SimpleDateFormat issueFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
-    private static final SAMLConfiguration samlConfiguration;
-    private static final Credential signinCredential;
+    private static final String spEntityId = "https://engine.test.surfconext.nl/authentication/sp/metadata";
+    private static final Credential signingCredential;
+
+    @RegisterExtension
+    WireMockExtension mockServer = new WireMockExtension(8999);
+    private DefaultSAMLIdPService samlIdPService;
 
     static {
-        String entityId = "https://test.entity.org";
-        samlConfiguration = new SAMLConfiguration(
-                readFile("saml_idp.crt"),
-                readFile("saml_idp.pem"),
-                entityId,
-                "https://engine.test.surfconext.nl/authentication/sp/metadata",
-                readFile("saml_idp.crt"),
-                entityId,
-                false
+        java.security.Security.addProvider(
+                new org.bouncycastle.jce.provider.BouncyCastleProvider()
         );
-        samlIdPService = new DefaultSAMLIdPService(samlConfiguration);
         KeyStore keyStore = KeyStoreLocator.createKeyStore(
-                entityId,
-                samlConfiguration.getIdpCertificate(),
-                samlConfiguration.getIdpPrivateKey(),
+                spEntityId,
+                readFile("saml_sp.crt"),
+                readFile("saml_sp.pem"),
                 "secret"
         );
-        KeyStoreCredentialResolver resolver = new KeyStoreCredentialResolver(keyStore, Map.of(entityId, "secret"), UsageType.SIGNING);
+        KeyStoreCredentialResolver resolver = new KeyStoreCredentialResolver(keyStore, Map.of(spEntityId, "secret"), UsageType.SIGNING);
         try {
-            signinCredential = resolver.resolveSingle(new CriteriaSet(new EntityIdCriterion(entityId), new UsageCriterion(UsageType.SIGNING)));
+            signingCredential = resolver.resolveSingle(new CriteriaSet(new EntityIdCriterion(spEntityId), new UsageCriterion(UsageType.SIGNING)));
         } catch (ResolverException e) {
             throw new RuntimeException(e);
         }
     }
 
+    private String getSPMetaData() {
+        SAMLConfiguration samlConfiguration = new SAMLConfiguration(
+                new SAMLIdentityProvider(
+                        readFile("saml_idp.crt"),
+                        readFile("saml_idp.pem"),
+                        spEntityId),
+                List.of(),
+                false
+        );
+        SAMLServiceProvider serviceProvider = new SAMLServiceProvider(spEntityId, spEntityId);
+        serviceProvider.setCredential(signingCredential);
+        serviceProvider.setAcsLocation("https://engine.test.surfconext.nl/authentication/sp/consume-assertion");
+        DefaultSAMLIdPService tempSamlIdPService = new DefaultSAMLIdPService(samlConfiguration);
+        return tempSamlIdPService.serviceProviderMetaData(serviceProvider);
+    }
+
+    @BeforeEach
+    void beforeEach() {
+        SAMLConfiguration samlConfiguration = getSamlConfiguration(false);
+        samlIdPService = new DefaultSAMLIdPService(samlConfiguration);
+    }
+
+    private SAMLConfiguration getSamlConfiguration(boolean requiresSignedAuthnRequest) {
+        String metaData = getSPMetaData();
+        stubFor(get(urlPathMatching("/sp-metadata.xml")).willReturn(aResponse()
+                .withHeader("Content-Type", "text/xml")
+                .withBody(metaData)));
+        SAMLServiceProvider serviceProvider = new SAMLServiceProvider(
+                spEntityId,
+                "http://localhost:8999/sp-metadata.xml"
+        );
+        SAMLConfiguration samlConfiguration = new SAMLConfiguration(
+                new SAMLIdentityProvider(
+                        readFile("saml_idp.crt"),
+                        readFile("saml_idp.pem"),
+                        spEntityId),
+                List.of(serviceProvider),
+                requiresSignedAuthnRequest
+        );
+        return samlConfiguration;
+    }
+
     @SneakyThrows
     private String samlAuthnRequest() {
         String samlRequestTemplate = readFile("authn_request.xml");
-        String samlRequest = String.format(samlRequestTemplate, UUID.randomUUID(), issueFormat.format(new Date()));
+        String samlRequest = String.format(samlRequestTemplate, UUID.randomUUID(), issueFormat.format(new Date()), spEntityId);
         return deflatedBase64encoded(samlRequest);
     }
 
@@ -87,7 +125,7 @@ class DefaultSAMLIdPServiceTest {
         String samlRequest = samlAuthnRequest();
 
         AuthnRequest authnRequest = samlIdPService.parseAuthnRequest(samlRequest, true, true);
-        samlIdPService.signObject(authnRequest, signinCredential);
+        samlIdPService.signObject(authnRequest, signingCredential);
 
         Element element = XMLObjectSupport.marshall(authnRequest);
         String xml = SerializeSupport.nodeToString(element);
@@ -122,6 +160,25 @@ class DefaultSAMLIdPServiceTest {
 
     @SneakyThrows
     @Test
+    void parseAuthnRequestSignatureMissing() {
+        SAMLConfiguration samlConfiguration = getSamlConfiguration(true);
+        DefaultSAMLIdPService idPService = new DefaultSAMLIdPService(samlConfiguration);
+        String samlRequest = this.samlAuthnRequest();
+
+        assertThrows(SignatureException.class, () -> idPService.parseAuthnRequest(samlRequest, true, true));
+    }
+
+    @SneakyThrows
+    @Test
+    void unknownServiceProvider() {
+        String samlRequestTemplate = readFile("authn_request.xml");
+        String samlRequest = String.format(samlRequestTemplate, UUID.randomUUID(), issueFormat.format(new Date()), "https://nope.nl");
+        String encodedSamlRequest = deflatedBase64encoded(samlRequest);
+        assertThrows(IllegalArgumentException.class,() -> samlIdPService.parseAuthnRequest(encodedSamlRequest, true, true)) ;
+    }
+
+    @SneakyThrows
+    @Test
     void parseSignedAuthnRequest() {
         String authnRequestXML = this.signedSamlAuthnRequest();
         AuthnRequest authnRequest = samlIdPService.parseAuthnRequest(authnRequestXML, true, true);
@@ -136,12 +193,12 @@ class DefaultSAMLIdPServiceTest {
         String inResponseTo = UUID.randomUUID().toString();
         MockHttpServletResponse httpServletResponse = new MockHttpServletResponse();
         samlIdPService.sendResponse(
-                "https://acs",
+                spEntityId,
                 inResponseTo,
                 "urn:specified",
                 SAMLStatus.SUCCESS,
                 "relayState😀",
-                null,
+                "Ok",
                 DefaultSAMLIdPService.authnContextClassRefPassword,
                 List.of(
                         new SAMLAttribute("group", "riders"),
@@ -156,8 +213,8 @@ class DefaultSAMLIdPServiceTest {
         assertEquals("relayState?�", relayState);
 
         String samlResponse = document.select("input[name=\"SAMLResponse\"]").first().attr("value");
-        Response response = samlIdPService.parseResponse(samlResponse, true, false);
-        //damn you, open-saml
+        //Convenient way to make simple assertions
+        Response response = samlIdPService.parseResponse(samlResponse);
         List<String> group = response
                 .getAssertions().get(0)
                 .getAttributeStatements().get(0)
@@ -183,4 +240,20 @@ class DefaultSAMLIdPServiceTest {
         assertTrue(metaData.contains(singleSignOnServiceURI));
     }
 
+    @Test
+    void resolveSigningCredential() {
+        SAMLServiceProvider serviceProvider = samlIdPService.resolveSigningCredential(
+                new SAMLServiceProvider(spEntityId, "https://metadata.test.surfconext.nl/sp-metadata.xml")
+        );
+        assertEquals("https://engine.test.surfconext.nl/authentication/sp/metadata", serviceProvider.getEntityId());
+        assertNotNull(serviceProvider.getCredential());
+    }
+
+    @Test
+    void resolveSigningCredentialResilience() {
+        SAMLServiceProvider serviceProvider = samlIdPService.resolveSigningCredential(
+                new SAMLServiceProvider(spEntityId, "https://nope")
+        );
+        assertNull(serviceProvider);
+    }
 }

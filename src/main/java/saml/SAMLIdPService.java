@@ -1,7 +1,9 @@
 package saml;
 
 import org.opensaml.saml.saml2.core.*;
+import org.opensaml.saml.saml2.metadata.EntityDescriptor;
 import saml.model.SAMLAttribute;
+import saml.model.SAMLServiceProvider;
 import saml.model.SAMLStatus;
 
 import javax.servlet.http.HttpServletResponse;
@@ -43,5 +45,22 @@ public interface SAMLIdPService {
                       HttpServletResponse servletResponse);
 
 
+    /**
+     * Construct the XML metadata (e.g. {@link EntityDescriptor}) with the provided IdP attributes
+     *
+     * @param singleSignOnService the URL for single sign on
+     * @param name the name of the IdP
+     * @param description  the description of the IdP
+     * @param logoURI the logoURI of the IdP
+     * @return XML medadata
+     */
     String metaData(String singleSignOnService, String name, String description, String logoURI);
+
+    /**
+     * Resolve the metadata (e.g. {@link EntityDescriptor}) located at the provided URL
+     *
+     * @param serviceProvider the (e.g. {@link SAMLServiceProvider}) containing the metadata URL and entityID
+     * @return the SAMLServiceProvider that may be null
+     */
+    SAMLServiceProvider resolveSigningCredential(SAMLServiceProvider serviceProvider);
 }
