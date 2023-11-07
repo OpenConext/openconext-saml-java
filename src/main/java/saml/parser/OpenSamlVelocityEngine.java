@@ -12,6 +12,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class OpenSamlVelocityEngine {
 
+    private static final String templateId  = "/templates/saml2-post-binding.vm";
     private final org.apache.velocity.app.VelocityEngine velocityEngine;
 
     public OpenSamlVelocityEngine() {
@@ -23,8 +24,7 @@ public class OpenSamlVelocityEngine {
         velocityEngine.init();
     }
 
-    public void process(String templateId,
-                        Map<String, Object> model,
+    public void process(Map<String, Object> model,
                         Writer out) {
         VelocityContext context = new VelocityContext(model);
         velocityEngine.mergeTemplate(templateId, UTF_8.name(), context, out);

@@ -175,7 +175,7 @@ class DefaultSAMLIdPServiceTest {
         String samlRequestTemplate = readFile("authn_request.xml");
         String samlRequest = String.format(samlRequestTemplate, UUID.randomUUID(), issueFormat.format(new Date()), "https://nope.nl");
         String encodedSamlRequest = deflatedBase64encoded(samlRequest);
-        assertThrows(IllegalArgumentException.class,() -> samlIdPService.parseAuthnRequest(encodedSamlRequest, true, true)) ;
+        assertThrows(IllegalArgumentException.class, () -> samlIdPService.parseAuthnRequest(encodedSamlRequest, true, true));
     }
 
     @SneakyThrows
@@ -183,9 +183,9 @@ class DefaultSAMLIdPServiceTest {
     void acsLocationInvalid() {
         String samlRequestTemplate = readFile("authn_request.xml");
         String samlRequest = String.format(samlRequestTemplate, UUID.randomUUID(), issueFormat.format(new Date()), spEntityId);
-        samlRequest = samlRequest.replace("https://engine.test.surfconext.nl/authentication/sp/consume-assertion","https://nope");
+        samlRequest = samlRequest.replace("https://engine.test.surfconext.nl/authentication/sp/consume-assertion", "https://nope");
         String encodedSamlRequest = deflatedBase64encoded(samlRequest);
-        assertThrows(IllegalArgumentException.class,() -> samlIdPService.parseAuthnRequest(encodedSamlRequest, true, true)) ;
+        assertThrows(IllegalArgumentException.class, () -> samlIdPService.parseAuthnRequest(encodedSamlRequest, true, true));
     }
 
     @SneakyThrows
@@ -231,6 +231,7 @@ class DefaultSAMLIdPServiceTest {
         assertEquals(statusCode, "urn:oasis:names:tc:SAML:2.0:status:Success");
 
         assertEquals("Ok", response.getStatus().getStatusMessage().getValue());
+        assertEquals("Ok", ((XSString) response.getStatus().getStatusDetail().getUnknownXMLObjects().get(0)).getValue());
 
         List<String> group = response
                 .getAssertions().get(0)

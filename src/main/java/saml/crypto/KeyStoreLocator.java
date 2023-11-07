@@ -20,7 +20,7 @@ public class KeyStoreLocator {
         Certificate cert = X509Utilities.getCertificate(certBytes);
         ks.setCertificateEntry(name, cert);
 
-        PrivateKey pkey = X509Utilities.readPrivateKey(privateKey, passPhrase);
+        PrivateKey pkey = X509Utilities.readPrivateKey(privateKey);
         ks.setKeyEntry(name, pkey, passPhrase.toCharArray(), new
                 Certificate[]{cert});
         return ks;

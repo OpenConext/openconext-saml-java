@@ -47,7 +47,7 @@ public class X509Utilities {
     }
 
     @SneakyThrows
-    public static PrivateKey readPrivateKey(String pem, String passphrase) {
+    public static PrivateKey readPrivateKey(String pem) {
         PEMParser parser = new PEMParser(new CharArrayReader(pem.toCharArray()));
         Object obj = parser.readObject();
         parser.close();

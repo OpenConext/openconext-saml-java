@@ -7,8 +7,8 @@ import org.opensaml.security.credential.Credential;
 @Getter
 public class SAMLServiceProvider {
 
-    private String entityId;
-    private String metaDataUrl;
+    private final String entityId;
+    private final String metaDataUrl;
     private Credential credential;
     private String acsLocation;
 

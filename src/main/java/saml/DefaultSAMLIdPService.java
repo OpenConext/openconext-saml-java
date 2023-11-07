@@ -78,7 +78,6 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
     public static final String authnContextClassRefPassword = "urn:oasis:names:tc:SAML:2.0:ac:classes:Password";
     public static final String authnContextClassRefUnspecified = "urn:oasis:names:tc:SAML:2.0:ac:classes:unspecified";
 
-    private static final String POST_BINDING_VM = "/templates/saml2-post-binding.vm";
     private static final Logger LOG = LoggerFactory.getLogger(DefaultSAMLIdPService.class);
 
     static {
@@ -390,7 +389,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         servletResponse.setHeader("Expires", "0");
 
         StringWriter out = new StringWriter();
-        velocityEngine.process(POST_BINDING_VM, model, out);
+        velocityEngine.process(model, out);
         servletResponse.getWriter().write(out.toString());
     }
 
