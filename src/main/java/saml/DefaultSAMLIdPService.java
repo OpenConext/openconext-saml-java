@@ -278,10 +278,18 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         org.opensaml.saml.saml2.core.Status newStatus = buildSAMLObject(org.opensaml.saml.saml2.core.Status.class);
         StatusCode statusCode = buildSAMLObject(StatusCode.class);
         statusCode.setValue(status.getStatus());
+        newStatus.setStatusCode(statusCode);
         if (StringUtils.isNotEmpty(optionalMessage)) {
             StatusMessage statusMessage = buildSAMLObject(StatusMessage.class);
             statusMessage.setValue(optionalMessage);
             newStatus.setStatusMessage(statusMessage);
+
+            StatusDetail statusDetail = buildSAMLObject(StatusDetail.class);
+            XSStringBuilder stringBuilder = (XSStringBuilder) XMLObjectProviderRegistrySupport.getBuilderFactory().getBuilder(XSString.TYPE_NAME);
+            XSString stringValue = stringBuilder.buildObject(AttributeValue.DEFAULT_ELEMENT_NAME, XSString.TYPE_NAME);
+            stringValue.setValue(optionalMessage);
+            statusDetail.getUnknownXMLObjects().add(stringValue);
+            newStatus.setStatusDetail(statusDetail);
         }
         response.setStatus(newStatus);
 

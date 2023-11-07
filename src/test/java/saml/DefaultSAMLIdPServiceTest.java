@@ -225,6 +225,12 @@ class DefaultSAMLIdPServiceTest {
         String samlResponse = document.select("input[name=\"SAMLResponse\"]").first().attr("value");
         //Convenient way to make simple assertions
         Response response = samlIdPService.parseResponse(samlResponse);
+
+        String statusCode = response.getStatus().getStatusCode().getValue();
+        assertEquals(statusCode, "urn:oasis:names:tc:SAML:2.0:status:Success");
+
+        assertEquals("Ok", response.getStatus().getStatusMessage().getValue());
+
         List<String> group = response
                 .getAssertions().get(0)
                 .getAttributeStatements().get(0)
