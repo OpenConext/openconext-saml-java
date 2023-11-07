@@ -262,8 +262,8 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         SAMLServiceProvider serviceProvider = this.getSAMLServiceProvider(entityId);
 
         Instant now = Instant.now();
-        Instant notOnOrAfter = now.minus(skewTime);
-        Instant notBefore = now.plus(skewTime);
+        Instant notOnOrAfter = now.plus(skewTime);
+        Instant notBefore = now.minus(skewTime);
         //Very cumbersome Open-SAML interface, can't be helped
         Response response = buildSAMLObject(Response.class);
         String acsLocation = serviceProvider.getAcsLocation();

@@ -32,6 +32,7 @@ import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.security.KeyStore;
 import java.text.SimpleDateFormat;
+import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -243,6 +244,13 @@ class DefaultSAMLIdPServiceTest {
                 .collect(Collectors.toList());
 
         assertEquals(List.of("gliders", "riders"), group);
+
+        Instant notBefore = response.getAssertions().get(0).getConditions().getNotBefore();
+        Instant notOnOrAfter = response.getAssertions().get(0).getConditions().getNotOnOrAfter();
+        Instant now = Instant.now();
+
+        assertTrue(notBefore.isBefore(now));
+        assertTrue(notOnOrAfter.isAfter(now));
     }
 
     @Test
