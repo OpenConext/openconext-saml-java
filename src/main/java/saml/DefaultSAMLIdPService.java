@@ -76,6 +76,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public class DefaultSAMLIdPService implements SAMLIdPService {
 
     public static final String authnContextClassRefPassword = "urn:oasis:names:tc:SAML:2.0:ac:classes:Password";
+    public static final String authnContextClassRefUnspecified = "urn:oasis:names:tc:SAML:2.0:ac:classes:unspecified";
+
     private static final String POST_BINDING_VM = "/templates/saml2-post-binding.vm";
     private static final Logger LOG = LoggerFactory.getLogger(DefaultSAMLIdPService.class);
 
