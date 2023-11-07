@@ -75,16 +75,16 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class DefaultSAMLIdPService implements SAMLIdPService {
 
-    public static final String authnContextClassRefPassword = "urn:oasis:names:tc:SAML:2.0:ac:classes:Password";
-    public static final String authnContextClassRefUnspecified = "urn:oasis:names:tc:SAML:2.0:ac:classes:unspecified";
-
-    private static final Logger LOG = LoggerFactory.getLogger(DefaultSAMLIdPService.class);
-
     static {
         java.security.Security.addProvider(
                 new org.bouncycastle.jce.provider.BouncyCastleProvider()
         );
     }
+
+    public static final String authnContextClassRefPassword = "urn:oasis:names:tc:SAML:2.0:ac:classes:Password";
+    public static final String authnContextClassRefUnspecified = "urn:oasis:names:tc:SAML:2.0:ac:classes:unspecified";
+
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultSAMLIdPService.class);
 
     private final OpenSamlVelocityEngine velocityEngine = new OpenSamlVelocityEngine();
     private final BasicParserPool parserPool;
@@ -97,7 +97,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
     public DefaultSAMLIdPService(SAMLConfiguration configuration) {
         SAMLIdentityProvider identityProvider = configuration.getIdentityProvider();
         String entityId = identityProvider.getEntityId();
-        String secret = "secret";
+        String secret = UUID.randomUUID().toString();
         KeyStore keyStore = KeyStoreLocator.createKeyStore(
                 entityId,
                 identityProvider.getCertificate(),
