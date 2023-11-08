@@ -24,7 +24,7 @@ public interface SAMLIdPService {
     /**
      * Send an XML {@link Response} using the {@link HttpServletResponse}
      *
-     * @param destination               the AssertionConsumerServiceURL from the originating {@link AuthnRequest}
+     * @param spEntityID                  the entityID of the SP
      * @param inResponseTo              the ID of the originating {@link AuthnRequest}
      * @param nameId                    the nameID of the {@link Subject}
      * @param status                    the {@link StatusCode} of the {@link Response}
@@ -34,7 +34,7 @@ public interface SAMLIdPService {
      * @param samlAttributes            the user attributes which will be grouped by name
      * @param servletResponse           the {@link HttpServletResponse} to write content back to originating ServiceProvider
      */
-    void sendResponse(String destination,
+    void sendResponse(String spEntityID,
                       String inResponseTo,
                       String nameId,
                       SAMLStatus status,
@@ -49,9 +49,9 @@ public interface SAMLIdPService {
      * Construct the XML metadata (e.g. {@link EntityDescriptor}) with the provided IdP attributes
      *
      * @param singleSignOnService the URL for single sign on
-     * @param name the name of the IdP
-     * @param description  the description of the IdP
-     * @param logoURI the logoURI of the IdP
+     * @param name                the name of the IdP
+     * @param description         the description of the IdP
+     * @param logoURI             the logoURI of the IdP
      * @return XML medadata
      */
     String metaData(String singleSignOnService, String name, String description, String logoURI);

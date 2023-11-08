@@ -249,7 +249,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
 
     @SneakyThrows
     @Override
-    public void sendResponse(String entityId,
+    public void sendResponse(String spEntityID,
                              String inResponseTo,
                              String nameId,
                              SAMLStatus status,
@@ -258,7 +258,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
                              String authnContextClassRefValue,
                              List<SAMLAttribute> samlAttributes,
                              HttpServletResponse servletResponse) {
-        SAMLServiceProvider serviceProvider = this.getSAMLServiceProvider(entityId);
+        SAMLServiceProvider serviceProvider = this.getSAMLServiceProvider(spEntityID);
 
         Instant now = Instant.now();
         Instant notOnOrAfter = now.plus(skewTime);
@@ -272,7 +272,9 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         response.setIssueInstant(now);
 
         Issuer issuer = buildSAMLObject(Issuer.class);
-        issuer.setValue(this.configuration.getIdentityProvider().getEntityId());
+        String idpEntityID = this.configuration.getIdentityProvider().getEntityId();
+        issuer.setValue(idpEntityID);
+        issuer.setFormat("urn:oasis:names:tc:SAML:2.0:nameid-format:entity");
         response.setIssuer(issuer);
         response.setVersion(SAMLVersion.VERSION_20);
 
@@ -297,7 +299,8 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         Assertion assertion = buildSAMLObject(Assertion.class);
         // Can't re-use, because it is already the child of another XML Object
         Issuer newIssuer = buildSAMLObject(Issuer.class);
-        newIssuer.setValue(this.configuration.getIdentityProvider().getEntityId());
+        newIssuer.setValue(idpEntityID);
+        newIssuer.setFormat("urn:oasis:names:tc:SAML:2.0:nameid-format:entity");
         assertion.setIssuer(newIssuer);
         assertion.setID("A" + UUID.randomUUID());
         assertion.setIssueInstant(now);
@@ -307,7 +310,6 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         NameID nameID = buildSAMLObject(NameID.class);
         nameID.setValue(nameId);
         nameID.setFormat("urn:oasis:names:tc:SAML:2.0:nameid-format:persistent");
-        nameID.setSPNameQualifier(entityId);
         subject.setNameID(nameID);
 
         SubjectConfirmation subjectConfirmation = buildSAMLObject(SubjectConfirmation.class);
@@ -326,7 +328,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         conditions.setNotOnOrAfter(notOnOrAfter);
         AudienceRestriction audienceRestriction = buildSAMLObject(AudienceRestriction.class);
         Audience audience = buildSAMLObject(Audience.class);
-        audience.setURI(entityId);
+        audience.setURI(spEntityID);
         audienceRestriction.getAudiences().add(audience);
         conditions.getAudienceRestrictions().add(audienceRestriction);
         assertion.setConditions(conditions);
@@ -342,7 +344,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         authnContext.setAuthnContextClassRef(authnContextClassRef);
 
         AuthenticatingAuthority authenticatingAuthority = buildSAMLObject(AuthenticatingAuthority.class);
-        authenticatingAuthority.setURI(entityId);
+        authenticatingAuthority.setURI(idpEntityID);
         authnContext.getAuthenticatingAuthorities().add(authenticatingAuthority);
         authnStatement.setAuthnContext(authnContext);
         assertion.getAuthnStatements().add(authnStatement);
