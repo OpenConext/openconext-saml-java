@@ -12,10 +12,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.opensaml.core.criterion.EntityIdCriterion;
+import org.opensaml.core.xml.XMLObject;
 import org.opensaml.core.xml.schema.XSString;
 import org.opensaml.core.xml.util.XMLObjectSupport;
+import org.opensaml.saml.saml2.core.Assertion;
 import org.opensaml.saml.saml2.core.AuthnRequest;
 import org.opensaml.saml.saml2.core.Response;
+import org.opensaml.saml.saml2.core.StatusCode;
 import org.opensaml.security.credential.Credential;
 import org.opensaml.security.credential.UsageType;
 import org.opensaml.security.credential.impl.KeyStoreCredentialResolver;
@@ -72,6 +75,12 @@ class DefaultSAMLIdPServiceTest {
         }
     }
 
+    @BeforeEach
+    void beforeEach() {
+        SAMLConfiguration samlConfiguration = getSamlConfiguration(false);
+        samlIdPService = new DefaultSAMLIdPService(samlConfiguration);
+    }
+
     private String getSPMetaData() {
         SAMLConfiguration samlConfiguration = new SAMLConfiguration(
                 new SAMLIdentityProvider(
@@ -86,12 +95,6 @@ class DefaultSAMLIdPServiceTest {
         serviceProvider.setAcsLocation("https://engine.test.surfconext.nl/authentication/sp/consume-assertion");
         DefaultSAMLIdPService tempSamlIdPService = new DefaultSAMLIdPService(samlConfiguration);
         return tempSamlIdPService.serviceProviderMetaData(serviceProvider);
-    }
-
-    @BeforeEach
-    void beforeEach() {
-        SAMLConfiguration samlConfiguration = getSamlConfiguration(false);
-        samlIdPService = new DefaultSAMLIdPService(samlConfiguration);
     }
 
     private SAMLConfiguration getSamlConfiguration(boolean requiresSignedAuthnRequest) {
@@ -209,7 +212,7 @@ class DefaultSAMLIdPServiceTest {
                 "urn:specified",
                 SAMLStatus.SUCCESS,
                 "relayState😀",
-                "Ok",
+                null,
                 DefaultSAMLIdPService.authnContextClassRefPassword,
                 List.of(
                         new SAMLAttribute("group", "riders"),
@@ -230,9 +233,6 @@ class DefaultSAMLIdPServiceTest {
         String statusCode = response.getStatus().getStatusCode().getValue();
         assertEquals(statusCode, "urn:oasis:names:tc:SAML:2.0:status:Success");
 
-        assertEquals("Ok", response.getStatus().getStatusMessage().getValue());
-        assertEquals("Ok", ((XSString) response.getStatus().getStatusDetail().getUnknownXMLObjects().get(0)).getValue());
-
         List<String> group = response
                 .getAssertions().get(0)
                 .getAttributeStatements().get(0)
@@ -252,6 +252,40 @@ class DefaultSAMLIdPServiceTest {
 
         assertTrue(notBefore.isBefore(now));
         assertTrue(notOnOrAfter.isAfter(now));
+    }
+
+    @SneakyThrows
+    @Test
+    void sendResponseNoAuthnContext() {
+        String inResponseTo = UUID.randomUUID().toString();
+        MockHttpServletResponse httpServletResponse = new MockHttpServletResponse();
+        samlIdPService.sendResponse(
+                spEntityId,
+                inResponseTo,
+                "urn:specified",
+                SAMLStatus.NO_AUTHN_CONTEXT,
+                null,
+                "Not Ok",
+                DefaultSAMLIdPService.authnContextClassRefPassword,
+                List.of(),
+                httpServletResponse
+        );
+        String html = httpServletResponse.getContentAsString();
+        Document document = Jsoup.parse(html);
+        String samlResponse = document.select("input[name=\"SAMLResponse\"]").first().attr("value");
+        //Convenient way to make simple assertions
+        Response response = samlIdPService.parseResponse(samlResponse);
+
+        StatusCode statusCode = response.getStatus().getStatusCode();
+        StatusCode innerStatusCode = statusCode.getStatusCode();
+        assertEquals("urn:oasis:names:tc:SAML:2.0:status:Responder", statusCode.getValue() );
+        assertEquals(SAMLStatus.NO_AUTHN_CONTEXT.getStatus(), innerStatusCode.getValue());
+
+        assertEquals("Not Ok", response.getStatus().getStatusMessage().getValue());
+        assertEquals("Not Ok", ((XSString) response.getStatus().getStatusDetail().getUnknownXMLObjects().get(0)).getValue());
+
+        List<Assertion> assertions = response.getAssertions();
+        assertTrue(assertions.isEmpty());
     }
 
     @Test

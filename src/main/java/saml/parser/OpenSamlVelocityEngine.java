@@ -24,10 +24,8 @@ public class OpenSamlVelocityEngine {
         velocityEngine.init();
     }
 
-    public void process(Map<String, Object> model,
-                        Writer out) {
-        VelocityContext context = new VelocityContext(model);
-        velocityEngine.mergeTemplate(templateId, UTF_8.name(), context, out);
+    public void process(Map<String, Object> model, Writer out) {
+        velocityEngine.mergeTemplate(templateId, UTF_8.name(), new VelocityContext(model), out);
     }
 
 }

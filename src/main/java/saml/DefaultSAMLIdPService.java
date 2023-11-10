@@ -172,17 +172,17 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
                 throw new SignatureException("Signature element not found.");
             }
         } else {
-
             SignatureValidator.validate(signature, credential);
         }
     }
 
     private SAMLServiceProvider getSAMLServiceProvider(String entityId) {
         return this.serviceProviders
-                .computeIfAbsent(entityId, key -> this.resolveSigningCredential(this.configuration.getServiceProviders().stream()
-                        .filter(samlServiceProvider -> samlServiceProvider.getEntityId().equals(entityId))
-                        .findFirst()
-                        .orElseThrow(() -> new IllegalArgumentException("Unknown SP entity: " + entityId))));
+                .computeIfAbsent(entityId, key -> this.resolveSigningCredential(
+                        this.configuration.getServiceProviders().stream()
+                                .filter(samlServiceProvider -> samlServiceProvider.getEntityId().equals(entityId))
+                                .findFirst()
+                                .orElseThrow(() -> new IllegalArgumentException("Unknown SP entity: " + entityId))));
     }
 
     @SneakyThrows
@@ -280,7 +280,14 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
 
         org.opensaml.saml.saml2.core.Status newStatus = buildSAMLObject(org.opensaml.saml.saml2.core.Status.class);
         StatusCode statusCode = buildSAMLObject(StatusCode.class);
-        statusCode.setValue(status.getStatus());
+        if (status.equals(SAMLStatus.NO_AUTHN_CONTEXT)) {
+            statusCode.setValue("urn:oasis:names:tc:SAML:2.0:status:Responder");
+            StatusCode innerStatusCode = buildSAMLObject(StatusCode.class);
+            innerStatusCode.setValue(SAMLStatus.NO_AUTHN_CONTEXT.getStatus());
+            statusCode.setStatusCode(innerStatusCode);
+        } else {
+            statusCode.setValue(status.getStatus());
+        }
         newStatus.setStatusCode(statusCode);
         if (StringUtils.isNotEmpty(optionalMessage)) {
             StatusMessage statusMessage = buildSAMLObject(StatusMessage.class);
@@ -296,79 +303,81 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         }
         response.setStatus(newStatus);
 
-        Assertion assertion = buildSAMLObject(Assertion.class);
-        // Can't re-use, because it is already the child of another XML Object
-        Issuer newIssuer = buildSAMLObject(Issuer.class);
-        newIssuer.setValue(idpEntityID);
-        newIssuer.setFormat("urn:oasis:names:tc:SAML:2.0:nameid-format:entity");
-        assertion.setIssuer(newIssuer);
-        assertion.setID("A" + UUID.randomUUID());
-        assertion.setIssueInstant(now);
-        assertion.setVersion(SAMLVersion.VERSION_20);
+        if (status.equals(SAMLStatus.SUCCESS)) {
+            Assertion assertion = buildSAMLObject(Assertion.class);
+            // Can't re-use, because it is already the child of another XML Object
+            Issuer newIssuer = buildSAMLObject(Issuer.class);
+            newIssuer.setValue(idpEntityID);
+            newIssuer.setFormat("urn:oasis:names:tc:SAML:2.0:nameid-format:entity");
+            assertion.setIssuer(newIssuer);
+            assertion.setID("A" + UUID.randomUUID());
+            assertion.setIssueInstant(now);
+            assertion.setVersion(SAMLVersion.VERSION_20);
 
-        Subject subject = buildSAMLObject(Subject.class);
-        NameID nameID = buildSAMLObject(NameID.class);
-        nameID.setValue(nameId);
-        nameID.setFormat("urn:oasis:names:tc:SAML:2.0:nameid-format:persistent");
-        subject.setNameID(nameID);
+            Subject subject = buildSAMLObject(Subject.class);
+            NameID nameID = buildSAMLObject(NameID.class);
+            nameID.setValue(nameId);
+            nameID.setFormat("urn:oasis:names:tc:SAML:2.0:nameid-format:persistent");
+            subject.setNameID(nameID);
 
-        SubjectConfirmation subjectConfirmation = buildSAMLObject(SubjectConfirmation.class);
-        subjectConfirmation.setMethod("urn:oasis:names:tc:SAML:2.0:cm:bearer");
-        SubjectConfirmationData subjectConfirmationData = buildSAMLObject(SubjectConfirmationData.class);
-        subjectConfirmationData.setInResponseTo(inResponseTo);
-        subjectConfirmationData.setNotOnOrAfter(notOnOrAfter);
-        subjectConfirmationData.setNotBefore(notBefore);
-        subjectConfirmationData.setRecipient(acsLocation);
-        subjectConfirmation.setSubjectConfirmationData(subjectConfirmationData);
-        subject.getSubjectConfirmations().add(subjectConfirmation);
-        assertion.setSubject(subject);
+            SubjectConfirmation subjectConfirmation = buildSAMLObject(SubjectConfirmation.class);
+            subjectConfirmation.setMethod("urn:oasis:names:tc:SAML:2.0:cm:bearer");
+            SubjectConfirmationData subjectConfirmationData = buildSAMLObject(SubjectConfirmationData.class);
+            subjectConfirmationData.setInResponseTo(inResponseTo);
+            subjectConfirmationData.setNotOnOrAfter(notOnOrAfter);
+            subjectConfirmationData.setNotBefore(notBefore);
+            subjectConfirmationData.setRecipient(acsLocation);
+            subjectConfirmation.setSubjectConfirmationData(subjectConfirmationData);
+            subject.getSubjectConfirmations().add(subjectConfirmation);
+            assertion.setSubject(subject);
 
-        Conditions conditions = buildSAMLObject(Conditions.class);
-        conditions.setNotBefore(notBefore);
-        conditions.setNotOnOrAfter(notOnOrAfter);
-        AudienceRestriction audienceRestriction = buildSAMLObject(AudienceRestriction.class);
-        Audience audience = buildSAMLObject(Audience.class);
-        audience.setURI(spEntityID);
-        audienceRestriction.getAudiences().add(audience);
-        conditions.getAudienceRestrictions().add(audienceRestriction);
-        assertion.setConditions(conditions);
+            Conditions conditions = buildSAMLObject(Conditions.class);
+            conditions.setNotBefore(notBefore);
+            conditions.setNotOnOrAfter(notOnOrAfter);
+            AudienceRestriction audienceRestriction = buildSAMLObject(AudienceRestriction.class);
+            Audience audience = buildSAMLObject(Audience.class);
+            audience.setURI(spEntityID);
+            audienceRestriction.getAudiences().add(audience);
+            conditions.getAudienceRestrictions().add(audienceRestriction);
+            assertion.setConditions(conditions);
 
-        AuthnStatement authnStatement = buildSAMLObject(AuthnStatement.class);
-        authnStatement.setAuthnInstant(now);
-        authnStatement.setSessionIndex("IDX" + UUID.randomUUID());
-        authnStatement.setSessionNotOnOrAfter(notOnOrAfter);
+            AuthnStatement authnStatement = buildSAMLObject(AuthnStatement.class);
+            authnStatement.setAuthnInstant(now);
+            authnStatement.setSessionIndex("IDX" + UUID.randomUUID());
+            authnStatement.setSessionNotOnOrAfter(notOnOrAfter);
 
-        AuthnContext authnContext = buildSAMLObject(AuthnContext.class);
-        AuthnContextClassRef authnContextClassRef = buildSAMLObject(AuthnContextClassRef.class);
-        authnContextClassRef.setURI(authnContextClassRefValue);
-        authnContext.setAuthnContextClassRef(authnContextClassRef);
+            AuthnContext authnContext = buildSAMLObject(AuthnContext.class);
+            AuthnContextClassRef authnContextClassRef = buildSAMLObject(AuthnContextClassRef.class);
+            authnContextClassRef.setURI(authnContextClassRefValue);
+            authnContext.setAuthnContextClassRef(authnContextClassRef);
 
-        AuthenticatingAuthority authenticatingAuthority = buildSAMLObject(AuthenticatingAuthority.class);
-        authenticatingAuthority.setURI(idpEntityID);
-        authnContext.getAuthenticatingAuthorities().add(authenticatingAuthority);
-        authnStatement.setAuthnContext(authnContext);
-        assertion.getAuthnStatements().add(authnStatement);
+            AuthenticatingAuthority authenticatingAuthority = buildSAMLObject(AuthenticatingAuthority.class);
+            authenticatingAuthority.setURI(idpEntityID);
+            authnContext.getAuthenticatingAuthorities().add(authenticatingAuthority);
+            authnStatement.setAuthnContext(authnContext);
+            assertion.getAuthnStatements().add(authnStatement);
 
-        AttributeStatement attributeStatement = buildSAMLObject(AttributeStatement.class);
-        List<Attribute> attributes = attributeStatement.getAttributes();
-        Map<String, List<SAMLAttribute>> groupedSAMLAttributes = samlAttributes.stream().collect(Collectors.groupingBy(SAMLAttribute::getName));
-        XSStringBuilder stringBuilder = (XSStringBuilder) XMLObjectProviderRegistrySupport.getBuilderFactory().getBuilder(XSString.TYPE_NAME);
+            AttributeStatement attributeStatement = buildSAMLObject(AttributeStatement.class);
+            List<Attribute> attributes = attributeStatement.getAttributes();
+            Map<String, List<SAMLAttribute>> groupedSAMLAttributes = samlAttributes.stream().collect(Collectors.groupingBy(SAMLAttribute::getName));
+            XSStringBuilder stringBuilder = (XSStringBuilder) XMLObjectProviderRegistrySupport.getBuilderFactory().getBuilder(XSString.TYPE_NAME);
 
-        groupedSAMLAttributes.forEach((name, values) -> {
-            Attribute attribute = buildSAMLObject(Attribute.class);
-            attribute.setName(name);
-            attribute.setNameFormat("urn:oasis:names:tc:SAML:2.0:attrname-format:uri");
-            attribute.getAttributeValues().addAll(values.stream().map(value -> {
-                XSString stringValue = stringBuilder.buildObject(AttributeValue.DEFAULT_ELEMENT_NAME, XSString.TYPE_NAME);
-                stringValue.setValue(value.getValue());
-                return stringValue;
-            }).collect(Collectors.toList()));
-            attributes.add(attribute);
-        });
-        assertion.getAttributeStatements().add(attributeStatement);
+            groupedSAMLAttributes.forEach((name, values) -> {
+                Attribute attribute = buildSAMLObject(Attribute.class);
+                attribute.setName(name);
+                attribute.setNameFormat("urn:oasis:names:tc:SAML:2.0:attrname-format:uri");
+                attribute.getAttributeValues().addAll(values.stream().map(value -> {
+                    XSString stringValue = stringBuilder.buildObject(AttributeValue.DEFAULT_ELEMENT_NAME, XSString.TYPE_NAME);
+                    stringValue.setValue(value.getValue());
+                    return stringValue;
+                }).collect(Collectors.toList()));
+                attributes.add(attribute);
+            });
+            assertion.getAttributeStatements().add(attributeStatement);
 
-        this.signObject(assertion, this.signingCredential);
-        response.getAssertions().add(assertion);
+            this.signObject(assertion, this.signingCredential);
+            response.getAssertions().add(assertion);
+        }
 
         this.signObject(response, this.signingCredential);
 
