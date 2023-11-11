@@ -1,12 +1,13 @@
 package saml.model;
 
 import lombok.Getter;
+import org.opensaml.saml.saml2.core.StatusCode;
 
 @Getter
 public enum SAMLStatus {
 
-    SUCCESS("urn:oasis:names:tc:SAML:2.0:status:Success"),
-    NO_AUTHN_CONTEXT("urn:oasis:names:tc:SAML:2.0:status:NoAuthnContext");
+    SUCCESS(StatusCode.SUCCESS),
+    NO_AUTHN_CONTEXT(StatusCode.NO_AUTHN_CONTEXT);
 
     private final String status;
 

@@ -20,7 +20,6 @@ import org.opensaml.core.xml.schema.impl.XSStringBuilder;
 import org.opensaml.core.xml.util.XMLObjectSupport;
 import org.opensaml.saml.common.SAMLVersion;
 import org.opensaml.saml.common.SignableSAMLObject;
-import org.opensaml.saml.common.xml.SAMLConstants;
 import org.opensaml.saml.ext.saml2mdui.Description;
 import org.opensaml.saml.ext.saml2mdui.DisplayName;
 import org.opensaml.saml.ext.saml2mdui.Logo;
@@ -71,6 +70,8 @@ import java.util.stream.Collectors;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.opensaml.saml.common.xml.SAMLConstants.SAML20P_NS;
+import static org.opensaml.saml.common.xml.SAMLConstants.SAML2_POST_BINDING_URI;
 
 
 public class DefaultSAMLIdPService implements SAMLIdPService {
@@ -81,8 +82,8 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         );
     }
 
-    public static final String authnContextClassRefPassword = "urn:oasis:names:tc:SAML:2.0:ac:classes:Password";
-    public static final String authnContextClassRefUnspecified = "urn:oasis:names:tc:SAML:2.0:ac:classes:unspecified";
+    public static final String authnContextClassRefPassword = AuthnContext.PASSWORD_AUTHN_CTX;
+    public static final String authnContextClassRefUnspecified = AuthnContext.UNSPECIFIED_AUTHN_CTX;
 
     private static final Logger LOG = LoggerFactory.getLogger(DefaultSAMLIdPService.class);
 
@@ -155,10 +156,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         parserBuilderFeatures.put("http://apache.org/xml/features/disallow-doctype-decl", TRUE);
         parserBuilderFeatures.put("http://javax.xml.XMLConstants/feature/secure-processing", TRUE);
         parserBuilderFeatures.put("http://xml.org/sax/features/external-general-entities", FALSE);
-        parserBuilderFeatures.put(
-                "http://apache.org/xml/features/validation/schema/normalized-value",
-                FALSE
-        );
+        parserBuilderFeatures.put("http://apache.org/xml/features/validation/schema/normalized-value", FALSE);
         parserBuilderFeatures.put("http://xml.org/sax/features/external-parameter-entities", FALSE);
         parserBuilderFeatures.put("http://apache.org/xml/features/dom/defer-node-expansion", FALSE);
         return parserBuilderFeatures;
@@ -208,6 +206,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         return authnRequest;
     }
 
+    @Override
     @SneakyThrows
     public Response parseResponse(String xml) {
         Response response = (Response) parseXMLObject(xml, true, false);
@@ -274,14 +273,14 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         Issuer issuer = buildSAMLObject(Issuer.class);
         String idpEntityID = this.configuration.getIdentityProvider().getEntityId();
         issuer.setValue(idpEntityID);
-        issuer.setFormat("urn:oasis:names:tc:SAML:2.0:nameid-format:entity");
+        issuer.setFormat(NameIDType.ENTITY);
         response.setIssuer(issuer);
         response.setVersion(SAMLVersion.VERSION_20);
 
         org.opensaml.saml.saml2.core.Status newStatus = buildSAMLObject(org.opensaml.saml.saml2.core.Status.class);
         StatusCode statusCode = buildSAMLObject(StatusCode.class);
         if (status.equals(SAMLStatus.NO_AUTHN_CONTEXT)) {
-            statusCode.setValue("urn:oasis:names:tc:SAML:2.0:status:Responder");
+            statusCode.setValue(StatusCode.RESPONDER);
             StatusCode innerStatusCode = buildSAMLObject(StatusCode.class);
             innerStatusCode.setValue(SAMLStatus.NO_AUTHN_CONTEXT.getStatus());
             statusCode.setStatusCode(innerStatusCode);
@@ -308,7 +307,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
             // Can't re-use, because it is already the child of another XML Object
             Issuer newIssuer = buildSAMLObject(Issuer.class);
             newIssuer.setValue(idpEntityID);
-            newIssuer.setFormat("urn:oasis:names:tc:SAML:2.0:nameid-format:entity");
+            newIssuer.setFormat(NameIDType.ENTITY);
             assertion.setIssuer(newIssuer);
             assertion.setID("A" + UUID.randomUUID());
             assertion.setIssueInstant(now);
@@ -317,11 +316,11 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
             Subject subject = buildSAMLObject(Subject.class);
             NameID nameID = buildSAMLObject(NameID.class);
             nameID.setValue(nameId);
-            nameID.setFormat("urn:oasis:names:tc:SAML:2.0:nameid-format:persistent");
+            nameID.setFormat(NameIDType.PERSISTENT);
             subject.setNameID(nameID);
 
             SubjectConfirmation subjectConfirmation = buildSAMLObject(SubjectConfirmation.class);
-            subjectConfirmation.setMethod("urn:oasis:names:tc:SAML:2.0:cm:bearer");
+            subjectConfirmation.setMethod(SubjectConfirmation.METHOD_BEARER);
             SubjectConfirmationData subjectConfirmationData = buildSAMLObject(SubjectConfirmationData.class);
             subjectConfirmationData.setInResponseTo(inResponseTo);
             subjectConfirmationData.setNotOnOrAfter(notOnOrAfter);
@@ -365,7 +364,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
             groupedSAMLAttributes.forEach((name, values) -> {
                 Attribute attribute = buildSAMLObject(Attribute.class);
                 attribute.setName(name);
-                attribute.setNameFormat("urn:oasis:names:tc:SAML:2.0:attrname-format:uri");
+                attribute.setNameFormat(Attribute.URI_REFERENCE);
                 attribute.getAttributeValues().addAll(values.stream().map(value -> {
                     XSString stringValue = stringBuilder.buildObject(AttributeValue.DEFAULT_ELEMENT_NAME, XSString.TYPE_NAME);
                     stringValue.setValue(value.getValue());
@@ -439,14 +438,14 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         idpssoDescriptor.setExtensions(extensions);
 
         NameIDFormat nameIDFormat = buildSAMLObject(NameIDFormat.class);
-        nameIDFormat.setURI("urn:oasis:names:tc:SAML:2.0:nameid-format:persistent");
+        nameIDFormat.setURI(NameIDType.PERSISTENT);
         idpssoDescriptor.getNameIDFormats().add(nameIDFormat);
 
-        idpssoDescriptor.addSupportedProtocol(SAMLConstants.SAML20P_NS);
+        idpssoDescriptor.addSupportedProtocol(SAML20P_NS);
 
         SingleSignOnService singleSignOnService = buildSAMLObject(SingleSignOnService.class);
         singleSignOnService.setLocation(singleSignOnServiceURI);
-        singleSignOnService.setBinding("urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST");
+        singleSignOnService.setBinding(SAML2_POST_BINDING_URI);
 
         idpssoDescriptor.getSingleSignOnServices().add(singleSignOnService);
 
@@ -494,11 +493,11 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         try {
             String xml = IOUtils.toString(new URL(serviceProvider.getMetaDataUrl()), Charset.defaultCharset());
             EntityDescriptor entityDescriptor = (EntityDescriptor) this.parseXMLObject(xml, false, false);
-            String acsLocation = entityDescriptor.getSPSSODescriptor(SAMLConstants.SAML20P_NS).getAssertionConsumerServices().get(0).getLocation();
+            String acsLocation = entityDescriptor.getSPSSODescriptor(SAML20P_NS).getAssertionConsumerServices().get(0).getLocation();
             serviceProvider.setAcsLocation(acsLocation);
 
-            KeyDescriptor keyDescriptor = entityDescriptor.getSPSSODescriptor("urn:oasis:names:tc:SAML:2.0:protocol")
-                    .getKeyDescriptors().stream().filter(kd -> kd.getUse().getValue().equals("signing"))
+            KeyDescriptor keyDescriptor = entityDescriptor.getSPSSODescriptor(SAML20P_NS)
+                    .getKeyDescriptors().stream().filter(kd -> kd.getUse().getValue().equals(UsageType.SIGNING.getValue()))
                     .findFirst().orElseThrow(IllegalArgumentException::new);
             X509Certificate x509Certificate = keyDescriptor.getKeyInfo().getX509Datas().get(0).getX509Certificates().get(0);
 
@@ -525,14 +524,14 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
         SPSSODescriptor spssoDescriptor = buildSAMLObject(SPSSODescriptor.class);
 
         NameIDFormat nameIDFormat = buildSAMLObject(NameIDFormat.class);
-        nameIDFormat.setURI("urn:oasis:names:tc:SAML:2.0:nameid-format:persistent");
+        nameIDFormat.setURI(NameIDType.PERSISTENT);
         spssoDescriptor.getNameIDFormats().add(nameIDFormat);
 
-        spssoDescriptor.addSupportedProtocol(SAMLConstants.SAML20P_NS);
+        spssoDescriptor.addSupportedProtocol(SAML20P_NS);
 
         AssertionConsumerService assertionConsumerService = buildSAMLObject(AssertionConsumerService.class);
         assertionConsumerService.setLocation(serviceProvider.getAcsLocation());
-        assertionConsumerService.setBinding("urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST");
+        assertionConsumerService.setBinding(SAML2_POST_BINDING_URI);
 
         spssoDescriptor.getAssertionConsumerServices().add(assertionConsumerService);
 

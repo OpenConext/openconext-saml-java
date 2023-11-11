@@ -12,6 +12,13 @@ import java.util.List;
 public interface SAMLIdPService {
 
     /**
+     * Parse XML String to {@link Response}
+     * @param xml parsed XML
+     * @return the populated {@link Response}
+     */
+    Response parseResponse(String xml);
+
+    /**
      * Parse the SAML xml to an {@link AuthnRequest}
      *
      * @param xml      the XML which can be BASE64 encoded and deflated
