@@ -54,7 +54,6 @@ public class X509Utilities {
         JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider("BC");
         PEMKeyPair ukp = (PEMKeyPair) obj;
         KeyPair kp = converter.getKeyPair(ukp);
-
         return kp.getPrivate();
     }
 
