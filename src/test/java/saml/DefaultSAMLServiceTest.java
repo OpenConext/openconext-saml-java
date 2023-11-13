@@ -4,7 +4,6 @@ import lombok.SneakyThrows;
 import net.shibboleth.utilities.java.support.resolver.CriteriaSet;
 import net.shibboleth.utilities.java.support.resolver.ResolverException;
 import net.shibboleth.utilities.java.support.xml.SerializeSupport;
-import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.IOUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -28,8 +27,6 @@ import org.w3c.dom.Element;
 import saml.crypto.KeyStoreLocator;
 import saml.model.*;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.security.KeyStore;
@@ -40,11 +37,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import java.util.zip.Deflater;
-import java.util.zip.DeflaterOutputStream;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.junit.jupiter.api.Assertions.*;
+import static saml.parser.EncodingUtils.deflatedBase64encoded;
 
 class DefaultSAMLServiceTest {
 
@@ -54,7 +50,7 @@ class DefaultSAMLServiceTest {
 
     @RegisterExtension
     WireMockExtension mockServer = new WireMockExtension(8999);
-    private DefaultSAMLService samlIdPService;
+    private DefaultSAMLService defaultSAMLService;
 
     static {
         java.security.Security.addProvider(
@@ -77,7 +73,7 @@ class DefaultSAMLServiceTest {
     @BeforeEach
     void beforeEach() {
         SAMLConfiguration samlConfiguration = getSamlConfiguration(false);
-        samlIdPService = new DefaultSAMLService(samlConfiguration);
+        defaultSAMLService = new DefaultSAMLService(samlConfiguration);
     }
 
     private String getSPMetaData() {
@@ -127,8 +123,8 @@ class DefaultSAMLServiceTest {
     private String signedSamlAuthnRequest() {
         String samlRequest = samlAuthnRequest();
 
-        AuthnRequest authnRequest = samlIdPService.parseAuthnRequest(samlRequest, true, true);
-        samlIdPService.signObject(authnRequest, signingCredential);
+        AuthnRequest authnRequest = defaultSAMLService.parseAuthnRequest(samlRequest, true, true);
+        defaultSAMLService.signObject(authnRequest, signingCredential);
 
         Element element = XMLObjectSupport.marshall(authnRequest);
         String xml = SerializeSupport.nodeToString(element);
@@ -143,20 +139,11 @@ class DefaultSAMLServiceTest {
         return IOUtils.toString(inputStream, Charset.defaultCharset());
     }
 
-    private String deflatedBase64encoded(String input) throws IOException {
-        ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
-        Deflater deflater = new Deflater(Deflater.DEFLATED, true);
-        DeflaterOutputStream deflaterStream = new DeflaterOutputStream(bytesOut, deflater);
-        deflaterStream.write(input.getBytes(Charset.defaultCharset()));
-        deflaterStream.finish();
-        return new String(Base64.encodeBase64(bytesOut.toByteArray()));
-    }
-
     @SneakyThrows
     @Test
     void parseAuthnRequest() {
         String samlRequest = this.samlAuthnRequest();
-        AuthnRequest authnRequest = samlIdPService.parseAuthnRequest(samlRequest, true, true);
+        AuthnRequest authnRequest = defaultSAMLService.parseAuthnRequest(samlRequest, true, true);
         String uri = authnRequest.getScoping().getRequesterIDs().get(0).getURI();
         assertEquals("https://test.surfconext.nl", uri);
     }
@@ -177,7 +164,7 @@ class DefaultSAMLServiceTest {
         String samlRequestTemplate = readFile("authn_request.xml");
         String samlRequest = String.format(samlRequestTemplate, UUID.randomUUID(), issueFormat.format(new Date()), "https://nope.nl");
         String encodedSamlRequest = deflatedBase64encoded(samlRequest);
-        assertThrows(IllegalArgumentException.class, () -> samlIdPService.parseAuthnRequest(encodedSamlRequest, true, true));
+        assertThrows(IllegalArgumentException.class, () -> defaultSAMLService.parseAuthnRequest(encodedSamlRequest, true, true));
     }
 
     @SneakyThrows
@@ -187,14 +174,14 @@ class DefaultSAMLServiceTest {
         String samlRequest = String.format(samlRequestTemplate, UUID.randomUUID(), issueFormat.format(new Date()), spEntityId);
         samlRequest = samlRequest.replace("https://engine.test.surfconext.nl/authentication/sp/consume-assertion", "https://nope");
         String encodedSamlRequest = deflatedBase64encoded(samlRequest);
-        assertThrows(IllegalArgumentException.class, () -> samlIdPService.parseAuthnRequest(encodedSamlRequest, true, true));
+        assertThrows(IllegalArgumentException.class, () -> defaultSAMLService.parseAuthnRequest(encodedSamlRequest, true, true));
     }
 
     @SneakyThrows
     @Test
     void parseSignedAuthnRequest() {
         String authnRequestXML = this.signedSamlAuthnRequest();
-        AuthnRequest authnRequest = samlIdPService.parseAuthnRequest(authnRequestXML, true, true);
+        AuthnRequest authnRequest = defaultSAMLService.parseAuthnRequest(authnRequestXML, true, true);
 
         String uri = authnRequest.getScoping().getRequesterIDs().get(0).getURI();
         assertEquals("https://test.surfconext.nl", uri);
@@ -205,7 +192,7 @@ class DefaultSAMLServiceTest {
     void sendResponse() {
         String inResponseTo = UUID.randomUUID().toString();
         MockHttpServletResponse httpServletResponse = new MockHttpServletResponse();
-        samlIdPService.sendResponse(
+        defaultSAMLService.sendResponse(
                 spEntityId,
                 inResponseTo,
                 "urn:specified",
@@ -227,7 +214,7 @@ class DefaultSAMLServiceTest {
 
         String samlResponse = document.select("input[name=\"SAMLResponse\"]").first().attr("value");
         //Convenient way to make simple assertions
-        Response response = samlIdPService.parseResponse(samlResponse);
+        Response response = defaultSAMLService.parseResponse(samlResponse);
 
         String statusCode = response.getStatus().getStatusCode().getValue();
         assertEquals(statusCode, "urn:oasis:names:tc:SAML:2.0:status:Success");
@@ -258,7 +245,7 @@ class DefaultSAMLServiceTest {
     void sendResponseNoAuthnContext() {
         String inResponseTo = UUID.randomUUID().toString();
         MockHttpServletResponse httpServletResponse = new MockHttpServletResponse();
-        samlIdPService.sendResponse(
+        defaultSAMLService.sendResponse(
                 spEntityId,
                 inResponseTo,
                 "urn:specified",
@@ -273,7 +260,7 @@ class DefaultSAMLServiceTest {
         Document document = Jsoup.parse(html);
         String samlResponse = document.select("input[name=\"SAMLResponse\"]").first().attr("value");
         //Convenient way to make simple assertions
-        Response response = samlIdPService.parseResponse(samlResponse);
+        Response response = defaultSAMLService.parseResponse(samlResponse);
 
         StatusCode statusCode = response.getStatus().getStatusCode();
         StatusCode innerStatusCode = statusCode.getStatusCode();
@@ -290,7 +277,7 @@ class DefaultSAMLServiceTest {
     @Test
     void metadata() {
         String singleSignOnServiceURI = "https://single.sign.on";
-        String metaData = samlIdPService.metaData(
+        String metaData = defaultSAMLService.metaData(
                 singleSignOnServiceURI,
                 "Test",
                 "Test description",
@@ -300,7 +287,7 @@ class DefaultSAMLServiceTest {
 
     @Test
     void resolveSigningCredential() {
-        SAMLServiceProvider serviceProvider = samlIdPService.resolveSigningCredential(
+        SAMLServiceProvider serviceProvider = defaultSAMLService.resolveSigningCredential(
                 new SAMLServiceProvider(spEntityId, "https://metadata.test.surfconext.nl/sp-metadata.xml")
         );
         assertEquals("https://engine.test.surfconext.nl/authentication/sp/metadata", serviceProvider.getEntityId());
@@ -309,9 +296,24 @@ class DefaultSAMLServiceTest {
 
     @Test
     void resolveSigningCredentialResilience() {
-        SAMLServiceProvider serviceProvider = samlIdPService.resolveSigningCredential(
+        SAMLServiceProvider serviceProvider = defaultSAMLService.resolveSigningCredential(
                 new SAMLServiceProvider(spEntityId, "https://nope")
         );
         assertNull(serviceProvider);
+    }
+
+    @Test
+    void createAuthnRequest() {
+        SAMLServiceProvider serviceProvider = new SAMLServiceProvider(spEntityId, spEntityId);
+        serviceProvider.setCredential(signingCredential);
+        serviceProvider.setAcsLocation("https://engine.test.surfconext.nl/authentication/sp/consume-assertion");
+
+        String authnRequestXML = this.defaultSAMLService.createAuthnRequest(serviceProvider,
+                "https://mujina-idp.test.surfconext.nl/SingleSignOnService",
+                true, true, "https://refeds.org/profile/mfa");
+
+        AuthnRequest authnRequest = this.defaultSAMLService.parseAuthnRequest(authnRequestXML, true, true);
+        assertEquals(serviceProvider.getEntityId(), authnRequest.getIssuer().getValue());
+        assertEquals(serviceProvider.getAcsLocation(), authnRequest.getAssertionConsumerServiceURL());
     }
 }

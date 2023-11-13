@@ -1,7 +1,9 @@
 package saml;
 
+import lombok.SneakyThrows;
 import org.opensaml.saml.saml2.core.*;
 import org.opensaml.saml.saml2.metadata.EntityDescriptor;
+import org.opensaml.security.credential.Credential;
 import saml.model.SAMLAttribute;
 import saml.model.SAMLServiceProvider;
 import saml.model.SAMLStatus;
@@ -11,8 +13,17 @@ import java.util.List;
 
 public interface SAMLService {
 
-
-    AuthnRequest createAuthnRequest(String authnContextClassRef);
+    /**
+     * Create an {@link AuthnRequest} and return the XML representation
+     *
+     * @param serviceProvider      the (e.g. {@link SAMLServiceProvider}) containing the entityID
+     * @param destination          the destination (e.g. singleSignService URL of the IdP)
+     * @param signRequest          will the request be signed. If so, then the {@link Credential} must be present in the SP
+     * @param forceAuthn           do we force a new authentication
+     * @param authnContextClassRef an optional value for the authnContextClassRef element
+     * @return deflated and Base64 encoded SAML AuthnRequest
+     */
+    String createAuthnRequest(SAMLServiceProvider serviceProvider, String destination, boolean signRequest, boolean forceAuthn, String authnContextClassRef);
 
     /**
      * Parse XML String to {@link Response}
@@ -73,4 +84,13 @@ public interface SAMLService {
      * @return the SAMLServiceProvider that may be null
      */
     SAMLServiceProvider resolveSigningCredential(SAMLServiceProvider serviceProvider);
+
+    /**
+     * Create SP metaData
+     *
+     * @param serviceProvider the (e.g. {@link SAMLServiceProvider}) containing the entityID and certificate
+     * @return SAML metadata
+     */
+    @SneakyThrows
+    String serviceProviderMetaData(SAMLServiceProvider serviceProvider);
 }

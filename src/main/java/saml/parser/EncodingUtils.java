@@ -5,8 +5,10 @@ import lombok.SneakyThrows;
 import org.apache.commons.codec.binary.Base64;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
+import java.nio.charset.Charset;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.Inflater;
@@ -14,7 +16,6 @@ import java.util.zip.InflaterOutputStream;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.zip.Deflater.DEFLATED;
 
 public class EncodingUtils {
 
@@ -30,6 +31,15 @@ public class EncodingUtils {
         iout.write(b);
         iout.finish();
         return out.toString(UTF_8);
+    }
+
+    public static String deflatedBase64encoded(String input) throws IOException {
+        ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
+        Deflater deflater = new Deflater(Deflater.DEFLATED, true);
+        DeflaterOutputStream deflaterStream = new DeflaterOutputStream(bytesOut, deflater);
+        deflaterStream.write(input.getBytes(Charset.defaultCharset()));
+        deflaterStream.finish();
+        return new String(Base64.encodeBase64(bytesOut.toByteArray()));
     }
 
     public static String samlEncode(String s) {

@@ -5,7 +5,9 @@
 ### [Usage](#usage)
 
 The main interface of the SAML library is `SAMLService`. 
-It provides the following functionality:
+It provides the following functionality for service / identity providers:
+- create an (optionally signed) `org.opensaml.saml.saml2.core.AuthnRequest`
+- construct the SP metadata
 - parsing SAML to an `org.opensaml.saml.saml2.core.AuthnRequest`
 - sending SAML response back to the Service Provider
 - construct the IdP metadata

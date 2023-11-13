@@ -20,6 +20,7 @@ import org.opensaml.core.xml.schema.impl.XSStringBuilder;
 import org.opensaml.core.xml.util.XMLObjectSupport;
 import org.opensaml.saml.common.SAMLVersion;
 import org.opensaml.saml.common.SignableSAMLObject;
+import org.opensaml.saml.common.xml.SAMLConstants;
 import org.opensaml.saml.ext.saml2mdui.Description;
 import org.opensaml.saml.ext.saml2mdui.DisplayName;
 import org.opensaml.saml.ext.saml2mdui.Logo;
@@ -72,6 +73,7 @@ import static java.lang.Boolean.TRUE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.opensaml.saml.common.xml.SAMLConstants.SAML20P_NS;
 import static org.opensaml.saml.common.xml.SAMLConstants.SAML2_POST_BINDING_URI;
+import static saml.parser.EncodingUtils.deflatedBase64encoded;
 
 
 public class DefaultSAMLService implements SAMLService {
@@ -204,6 +206,44 @@ public class DefaultSAMLService implements SAMLService {
         }
         this.validateSignature(authnRequest, serviceProvider.getCredential());
         return authnRequest;
+    }
+
+    @SneakyThrows
+    @Override
+    public String createAuthnRequest(SAMLServiceProvider serviceProvider,
+                                     String destination,
+                                     boolean signRequest,
+                                     boolean forceAuthn,
+                                     String authnContextClassRef) {
+        AuthnRequest authnRequest = buildSAMLObject(AuthnRequest.class);
+        authnRequest.setAssertionConsumerServiceURL(serviceProvider.getAcsLocation());
+        authnRequest.setDestination(destination);
+        authnRequest.setForceAuthn(forceAuthn);
+        authnRequest.setID("A" + UUID.randomUUID());
+        authnRequest.setIsPassive(false);
+        authnRequest.setIssueInstant(Instant.now());
+        authnRequest.setProtocolBinding(SAMLConstants.SAML2_POST_BINDING_URI);
+        authnRequest.setVersion(SAMLVersion.VERSION_20);
+
+        Issuer issuer = buildSAMLObject(Issuer.class);
+        issuer.setValue(serviceProvider.getEntityId());
+        authnRequest.setIssuer(issuer);
+
+        if (StringUtils.isNotEmpty(authnContextClassRef)) {
+            RequestedAuthnContext requestedAuthnContext = buildSAMLObject(RequestedAuthnContext.class);
+            AuthnContextClassRef newAuthnContextClassRef = buildSAMLObject(AuthnContextClassRef.class);
+            newAuthnContextClassRef.setURI(authnContextClassRef);
+            requestedAuthnContext.getAuthnContextClassRefs().add(newAuthnContextClassRef);
+            authnRequest.setRequestedAuthnContext(requestedAuthnContext);
+        }
+
+        if (signRequest) {
+            this.signObject(authnRequest, serviceProvider.getCredential());
+        }
+
+        Element element = XMLObjectSupport.marshall(authnRequest);
+        String samlAuthnRequest = SerializeSupport.nodeToString(element);
+        return deflatedBase64encoded(samlAuthnRequest);
     }
 
     @Override
@@ -515,7 +555,8 @@ public class DefaultSAMLService implements SAMLService {
     }
 
     @SneakyThrows
-    protected String serviceProviderMetaData(SAMLServiceProvider serviceProvider) {
+    @Override
+    public String serviceProviderMetaData(SAMLServiceProvider serviceProvider) {
         EntityDescriptor entityDescriptor = buildSAMLObject(EntityDescriptor.class);
         entityDescriptor.setEntityID(serviceProvider.getEntityId());
         entityDescriptor.setID("M" + UUID.randomUUID());
