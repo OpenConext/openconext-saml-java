@@ -12,7 +12,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.opensaml.core.criterion.EntityIdCriterion;
-import org.opensaml.core.xml.XMLObject;
 import org.opensaml.core.xml.schema.XSString;
 import org.opensaml.core.xml.util.XMLObjectSupport;
 import org.opensaml.saml.saml2.core.Assertion;
@@ -47,7 +46,7 @@ import java.util.zip.DeflaterOutputStream;
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-class DefaultSAMLIdPServiceTest {
+class DefaultSAMLServiceTest {
 
     private static final SimpleDateFormat issueFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
     private static final String spEntityId = "https://engine.test.surfconext.nl/authentication/sp/metadata";
@@ -55,7 +54,7 @@ class DefaultSAMLIdPServiceTest {
 
     @RegisterExtension
     WireMockExtension mockServer = new WireMockExtension(8999);
-    private DefaultSAMLIdPService samlIdPService;
+    private DefaultSAMLService samlIdPService;
 
     static {
         java.security.Security.addProvider(
@@ -78,7 +77,7 @@ class DefaultSAMLIdPServiceTest {
     @BeforeEach
     void beforeEach() {
         SAMLConfiguration samlConfiguration = getSamlConfiguration(false);
-        samlIdPService = new DefaultSAMLIdPService(samlConfiguration);
+        samlIdPService = new DefaultSAMLService(samlConfiguration);
     }
 
     private String getSPMetaData() {
@@ -93,7 +92,7 @@ class DefaultSAMLIdPServiceTest {
         SAMLServiceProvider serviceProvider = new SAMLServiceProvider(spEntityId, spEntityId);
         serviceProvider.setCredential(signingCredential);
         serviceProvider.setAcsLocation("https://engine.test.surfconext.nl/authentication/sp/consume-assertion");
-        DefaultSAMLIdPService tempSamlIdPService = new DefaultSAMLIdPService(samlConfiguration);
+        DefaultSAMLService tempSamlIdPService = new DefaultSAMLService(samlConfiguration);
         return tempSamlIdPService.serviceProviderMetaData(serviceProvider);
     }
 
@@ -140,7 +139,7 @@ class DefaultSAMLIdPServiceTest {
 
     @SneakyThrows
     private static String readFile(String path) {
-        InputStream inputStream = DefaultSAMLIdPService.class.getClassLoader().getResourceAsStream(path);
+        InputStream inputStream = DefaultSAMLService.class.getClassLoader().getResourceAsStream(path);
         return IOUtils.toString(inputStream, Charset.defaultCharset());
     }
 
@@ -166,7 +165,7 @@ class DefaultSAMLIdPServiceTest {
     @Test
     void parseAuthnRequestSignatureMissing() {
         SAMLConfiguration samlConfiguration = getSamlConfiguration(true);
-        DefaultSAMLIdPService idPService = new DefaultSAMLIdPService(samlConfiguration);
+        DefaultSAMLService idPService = new DefaultSAMLService(samlConfiguration);
         String samlRequest = this.samlAuthnRequest();
 
         assertThrows(SignatureException.class, () -> idPService.parseAuthnRequest(samlRequest, true, true));
@@ -213,7 +212,7 @@ class DefaultSAMLIdPServiceTest {
                 SAMLStatus.SUCCESS,
                 "relayState😀",
                 null,
-                DefaultSAMLIdPService.authnContextClassRefPassword,
+                DefaultSAMLService.authnContextClassRefPassword,
                 List.of(
                         new SAMLAttribute("group", "riders"),
                         new SAMLAttribute("group", "gliders"),
@@ -266,7 +265,7 @@ class DefaultSAMLIdPServiceTest {
                 SAMLStatus.NO_AUTHN_CONTEXT,
                 null,
                 "Not Ok",
-                DefaultSAMLIdPService.authnContextClassRefPassword,
+                DefaultSAMLService.authnContextClassRefPassword,
                 List.of(),
                 httpServletResponse
         );

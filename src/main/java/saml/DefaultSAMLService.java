@@ -74,7 +74,7 @@ import static org.opensaml.saml.common.xml.SAMLConstants.SAML20P_NS;
 import static org.opensaml.saml.common.xml.SAMLConstants.SAML2_POST_BINDING_URI;
 
 
-public class DefaultSAMLIdPService implements SAMLIdPService {
+public class DefaultSAMLService implements SAMLService {
 
     static {
         java.security.Security.addProvider(
@@ -85,7 +85,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
     public static final String authnContextClassRefPassword = AuthnContext.PASSWORD_AUTHN_CTX;
     public static final String authnContextClassRefUnspecified = AuthnContext.UNSPECIFIED_AUTHN_CTX;
 
-    private static final Logger LOG = LoggerFactory.getLogger(DefaultSAMLIdPService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultSAMLService.class);
 
     private final OpenSamlVelocityEngine velocityEngine = new OpenSamlVelocityEngine();
     private final BasicParserPool parserPool;
@@ -95,7 +95,7 @@ public class DefaultSAMLIdPService implements SAMLIdPService {
     private final Credential signingCredential;
 
     @SneakyThrows
-    public DefaultSAMLIdPService(SAMLConfiguration configuration) {
+    public DefaultSAMLService(SAMLConfiguration configuration) {
         SAMLIdentityProvider identityProvider = configuration.getIdentityProvider();
         String entityId = identityProvider.getEntityId();
         String secret = UUID.randomUUID().toString();

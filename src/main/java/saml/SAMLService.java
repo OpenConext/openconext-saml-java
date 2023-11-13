@@ -9,7 +9,10 @@ import saml.model.SAMLStatus;
 import javax.servlet.http.HttpServletResponse;
 import java.util.List;
 
-public interface SAMLIdPService {
+public interface SAMLService {
+
+
+    AuthnRequest createAuthnRequest(String authnContextClassRef);
 
     /**
      * Parse XML String to {@link Response}

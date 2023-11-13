@@ -4,8 +4,8 @@
 
 ### [Usage](#usage)
 
-The main interface of the SAML IdP library is `SAMLIdPService`. 
-It provides the following functionality
+The main interface of the SAML library is `SAMLService`. 
+It provides the following functionality:
 - parsing SAML to an `org.opensaml.saml.saml2.core.AuthnRequest`
 - sending SAML response back to the Service Provider
 - construct the IdP metadata
@@ -13,7 +13,7 @@ It provides the following functionality
 
 ### [Crypto](#crypto)
 
-The saml-idp library uses a private RSA key and corresponding certificate to sign the SAML requests. If you want to
+The saml-java library uses a private RSA key and corresponding certificate to sign the SAML requests. If you want to
 deploy the application in an environment where the certificate needs to be registered with the Service Provider (Proxy)
 then you can generate a key pair with the following commands:
 ```
