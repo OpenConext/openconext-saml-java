@@ -13,4 +13,10 @@ public class SAMLConfiguration {
     private SAMLIdentityProvider identityProvider;
     private List<SAMLServiceProvider> serviceProviders;
     private boolean requiresSignedAuthnRequest;
+    private boolean requiresSignedResponse;
+
+    public SAMLConfiguration(SAMLIdentityProvider identityProvider, List<SAMLServiceProvider> serviceProviders, boolean requiresSignedAuthnRequest) {
+        this(identityProvider, serviceProviders, requiresSignedAuthnRequest, true);
+    }
+
 }

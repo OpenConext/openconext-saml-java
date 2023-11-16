@@ -107,7 +107,8 @@ class DefaultSAMLServiceTest {
                         readFile("saml_idp.pem"),
                         spEntityId),
                 List.of(serviceProvider),
-                requiresSignedAuthnRequest
+                requiresSignedAuthnRequest,
+                true
         );
         return samlConfiguration;
     }

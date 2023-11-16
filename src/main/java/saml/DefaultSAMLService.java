@@ -165,10 +165,10 @@ public class DefaultSAMLService implements SAMLService {
     }
 
     @SneakyThrows
-    private void validateSignature(SignableSAMLObject target, Credential credential) {
+    private void validateSignature(SignableSAMLObject target, Credential credential, boolean signatureRequired) {
         Signature signature = target.getSignature();
         if (signature == null) {
-            if (this.configuration.isRequiresSignedAuthnRequest()) {
+            if (signatureRequired) {
                 throw new SignatureException("Signature element not found.");
             }
         } else {
@@ -204,7 +204,7 @@ public class DefaultSAMLService implements SAMLService {
             throw new IllegalArgumentException(String.format("ACS locations (%s, %s) does not match", serviceProvider.getAcsLocation(),
                     authnRequest.getAssertionConsumerServiceURL()));
         }
-        this.validateSignature(authnRequest, serviceProvider.getCredential());
+        this.validateSignature(authnRequest, serviceProvider.getCredential(), this.configuration.isRequiresSignedAuthnRequest());
         return authnRequest;
     }
 
@@ -250,7 +250,7 @@ public class DefaultSAMLService implements SAMLService {
     @SneakyThrows
     public Response parseResponse(String xml) {
         Response response = (Response) parseXMLObject(xml, true, false);
-        this.validateSignature(response, this.signingCredential);
+        this.validateSignature(response, this.signingCredential, this.configuration.isRequiresSignedResponse());
         return response;
     }
 

@@ -91,6 +91,5 @@ public interface SAMLService {
      * @param serviceProvider the (e.g. {@link SAMLServiceProvider}) containing the entityID and certificate
      * @return SAML metadata
      */
-    @SneakyThrows
     String serviceProviderMetaData(SAMLServiceProvider serviceProvider);
 }
