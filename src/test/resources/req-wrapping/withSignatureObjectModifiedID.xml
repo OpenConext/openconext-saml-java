@@ -1,0 +1,81 @@
+<saml2p:AuthnRequest xmlns:saml2p="urn:oasis:names:tc:SAML:2.0:protocol" AssertionConsumerServiceURL="https://engine.test.surfconext.nl/authentication/sp/consume-assertion" Destination="https://hackmanit.de/SingleSignOnService" ForceAuthn="true" ID="A524bd1eb-20b6-4f60-8d83-e56470b77581" IsPassive="false" IssueInstant="2023-12-15T12:42:49.740Z" ProtocolBinding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Version="2.0"><saml2:Issuer xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion">https://engine.test.surfconext.nl/authentication/sp/metadata</saml2:Issuer><ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+<ds:SignedInfo>
+<ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+<ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha512"/>
+<ds:Reference URI="#A524bd1eb-20b6-4f60-8d83-e56470b77580">
+<ds:Transforms>
+<ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
+<ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+</ds:Transforms>
+<ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha512"/>
+<ds:DigestValue>9M1ECvbkh/7rw58i2OaR6BbhyNiFj4ZuWW9ikWO1TrrtNEMNxovsQV2wRj+kAx7JYAazWYWE0Tix&#13;
+m5lEJe3vlA==</ds:DigestValue>
+</ds:Reference>
+</ds:SignedInfo>
+<ds:SignatureValue>
+UCXisoICllAKWfzlvQWQfRvFq60NzIlot0BAb5ijkTG9vNS8ska6OacGSonUODvSPVYQhkl8OaAz&#13;
+3EoZJqLeg9niYm7hK6uSIh8l58jfPTaMn6M8JJmCQh0Bfo34f4K8XoxuL9Eko1G7lNyV1QljEGne&#13;
+RItNFDWPs9PSE7efKdqSMSkzxn0XSNjBrXd7OB6fKrhWqYn5/Bd4AophEK4ca1EPlsnaYs2GyfDu&#13;
+seQqxZfHsXcFxYqXiyw+wanXdtjtzJmctmbQLrB772o3fSU64oaXT3+17HLey5wDWS3XtDqmbYOF&#13;
+zpKpeHpXW+FIgTJprUQHoHihNau59aTUki8OJg==
+</ds:SignatureValue>
+<ds:KeyInfo><ds:X509Data><ds:X509Certificate>MIIDITCCAgmgAwIBAgIUbORzQxwpN+XKnBnBKliIQNWq8VAwDQYJKoZIhvcNAQELBQAwIDEeMBwG
+A1UECgwVT3JnYW5pemF0aW9uLCBDTj1TVVJGMB4XDTIzMTEwNjEyNTM0NVoXDTI0MTEwNTEyNTM0
+NVowIDEeMBwGA1UECgwVT3JnYW5pemF0aW9uLCBDTj1TVVJGMIIBIjANBgkqhkiG9w0BAQEFAAOC
+AQ8AMIIBCgKCAQEAqFXZkiYjHpotLxmWzcBknAOwvKYTnelryw+LBB+BU+LCvpoT309cEo6D6kYI
+Xte+kAt8p+hkumX9O5P3V/GH2TF4Bx1v0kdkRzetyI3x/YoXkbho73X0jOCGUyazgIDmOX53phx/
+zDORH8mK1nDf6NT4huaeGIbyAHN2J1PoG+oh5RwOLJ92eFyNgaaRh2UCaxX3T64SrXoITjho3vhk
+oGkF2dgB61RBG3yh4JX4lpDIVtQzqDnTp/eVZ3fUsoHulCN1uvjNjdeUQuayU4ABKhYSyjqgdOha
+BLEYHMIaTJqnDb0HpeF9eMd2l4NxZezt8c4R/j4bx4J54mbWkIvC2QIDAQABo1MwUTAdBgNVHQ4E
+FgQUmv7wV57dp1tG6fnFEfNBq7nL2LMwHwYDVR0jBBgwFoAUmv7wV57dp1tG6fnFEfNBq7nL2LMw
+DwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAiK1F2mME2irf+tcbcYgX5Roi6dwm
+RqsX7JkO25Oj+cepbAFMHMdTYUizHum7Ffx3yw8UeDUcbAa3IvSEGNwk6+oJoMY+fwwQuUBiIxfR
+T89QlfeLAmpwE3f/v1LegaAaFH6Dg/q9WvrSa0njpxA5V6ff2YLmzuKcOxQx7j5u/pMaTGkGDt6q
+yc0P5JF1gS4Sbeb3lsxUiJUyEsFs/ePiPmbkIufyoCM9fMa+JwGO+q1XSfBJkpU7Tb0ZoRXxbRRv
+eu+UskdgqO3NDa3fCIfhQnIFLvIEd99mFUK9Hm+bpvF29wXlgPgFe2fDd+bXIaoL/KPZ6GrJibEF
+MqtQ+g7vyw==</ds:X509Certificate></ds:X509Data></ds:KeyInfo>
+
+<ds:Object>
+<saml2p:AuthnRequest xmlns:saml2p="urn:oasis:names:tc:SAML:2.0:protocol" AssertionConsumerServiceURL="https://engine.test.surfconext.nl/authentication/sp/consume-assertion" Destination="https://mujina-idp.test.surfconext.nl/SingleSignOnService" ForceAuthn="true" ID="A524bd1eb-20b6-4f60-8d83-e56470b77580" IsPassive="false" IssueInstant="2023-12-15T12:42:49.740Z" ProtocolBinding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Version="2.0"><saml2:Issuer xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion">https://engine.test.surfconext.nl/authentication/sp/metadata</saml2:Issuer><ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+<ds:SignedInfo>
+<ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+<ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha512"/>
+<ds:Reference URI="#A524bd1eb-20b6-4f60-8d83-e56470b77580">
+<ds:Transforms>
+<ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
+<ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+</ds:Transforms>
+<ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha512"/>
+<ds:DigestValue>9M1ECvbkh/7rw58i2OaR6BbhyNiFj4ZuWW9ikWO1TrrtNEMNxovsQV2wRj+kAx7JYAazWYWE0Tix&#13;
+m5lEJe3vlA==</ds:DigestValue>
+</ds:Reference>
+</ds:SignedInfo>
+<ds:SignatureValue>
+UCXisoICllAKWfzlvQWQfRvFq60NzIlot0BAb5ijkTG9vNS8ska6OacGSonUODvSPVYQhkl8OaAz&#13;
+3EoZJqLeg9niYm7hK6uSIh8l58jfPTaMn6M8JJmCQh0Bfo34f4K8XoxuL9Eko1G7lNyV1QljEGne&#13;
+RItNFDWPs9PSE7efKdqSMSkzxn0XSNjBrXd7OB6fKrhWqYn5/Bd4AophEK4ca1EPlsnaYs2GyfDu&#13;
+seQqxZfHsXcFxYqXiyw+wanXdtjtzJmctmbQLrB772o3fSU64oaXT3+17HLey5wDWS3XtDqmbYOF&#13;
+zpKpeHpXW+FIgTJprUQHoHihNau59aTUki8OJg==
+</ds:SignatureValue>
+<ds:KeyInfo><ds:X509Data><ds:X509Certificate>MIIDITCCAgmgAwIBAgIUbORzQxwpN+XKnBnBKliIQNWq8VAwDQYJKoZIhvcNAQELBQAwIDEeMBwG
+A1UECgwVT3JnYW5pemF0aW9uLCBDTj1TVVJGMB4XDTIzMTEwNjEyNTM0NVoXDTI0MTEwNTEyNTM0
+NVowIDEeMBwGA1UECgwVT3JnYW5pemF0aW9uLCBDTj1TVVJGMIIBIjANBgkqhkiG9w0BAQEFAAOC
+AQ8AMIIBCgKCAQEAqFXZkiYjHpotLxmWzcBknAOwvKYTnelryw+LBB+BU+LCvpoT309cEo6D6kYI
+Xte+kAt8p+hkumX9O5P3V/GH2TF4Bx1v0kdkRzetyI3x/YoXkbho73X0jOCGUyazgIDmOX53phx/
+zDORH8mK1nDf6NT4huaeGIbyAHN2J1PoG+oh5RwOLJ92eFyNgaaRh2UCaxX3T64SrXoITjho3vhk
+oGkF2dgB61RBG3yh4JX4lpDIVtQzqDnTp/eVZ3fUsoHulCN1uvjNjdeUQuayU4ABKhYSyjqgdOha
+BLEYHMIaTJqnDb0HpeF9eMd2l4NxZezt8c4R/j4bx4J54mbWkIvC2QIDAQABo1MwUTAdBgNVHQ4E
+FgQUmv7wV57dp1tG6fnFEfNBq7nL2LMwHwYDVR0jBBgwFoAUmv7wV57dp1tG6fnFEfNBq7nL2LMw
+DwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAiK1F2mME2irf+tcbcYgX5Roi6dwm
+RqsX7JkO25Oj+cepbAFMHMdTYUizHum7Ffx3yw8UeDUcbAa3IvSEGNwk6+oJoMY+fwwQuUBiIxfR
+T89QlfeLAmpwE3f/v1LegaAaFH6Dg/q9WvrSa0njpxA5V6ff2YLmzuKcOxQx7j5u/pMaTGkGDt6q
+yc0P5JF1gS4Sbeb3lsxUiJUyEsFs/ePiPmbkIufyoCM9fMa+JwGO+q1XSfBJkpU7Tb0ZoRXxbRRv
+eu+UskdgqO3NDa3fCIfhQnIFLvIEd99mFUK9Hm+bpvF29wXlgPgFe2fDd+bXIaoL/KPZ6GrJibEF
+MqtQ+g7vyw==</ds:X509Certificate></ds:X509Data></ds:KeyInfo></ds:Signature><saml2p:RequestedAuthnContext><saml2:AuthnContextClassRef xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion">https://refeds.org/profile/mfa</saml2:AuthnContextClassRef></saml2p:RequestedAuthnContext></saml2p:AuthnRequest>
+</ds:Object>
+
+</ds:Signature>
+<saml2p:RequestedAuthnContext>
+    <saml2:AuthnContextClassRef xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion">https://refeds.org/profile/mfa</saml2:AuthnContextClassRef>
+</saml2p:RequestedAuthnContext>
+</saml2p:AuthnRequest>
