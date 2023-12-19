@@ -174,7 +174,10 @@ public class DefaultSAMLService implements SAMLService {
                 throw new SignatureException("Signature element not found.");
             }
         } else {
+            //The docs state that implementations of SignaturePrevalidator do NOT perform the actual cryptographic validation of the signature against key material.
             this.samlSignatureProfileValidator.validate(signature);
+            //For the actual cryptographic validation.
+            SignatureValidator.validate(signature, credential);
         }
     }
 
