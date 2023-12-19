@@ -39,7 +39,10 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import java.io.File;
 import static org.junit.jupiter.api.Assertions.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import static saml.parser.EncodingUtils.deflatedBase64encoded;
 
 class DefaultSAMLServiceTest {
@@ -47,6 +50,8 @@ class DefaultSAMLServiceTest {
     private static final SimpleDateFormat issueFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
     private static final String spEntityId = "https://engine.test.surfconext.nl/authentication/sp/metadata";
     private static final Credential signingCredential;
+    
+    private static final Logger LOG = LoggerFactory.getLogger(DefaultSAMLServiceTest.class);
 
     @RegisterExtension
     WireMockExtension mockServer = new WireMockExtension(8999);
@@ -312,9 +317,62 @@ class DefaultSAMLServiceTest {
         String authnRequestXML = this.defaultSAMLService.createAuthnRequest(serviceProvider,
                 "https://mujina-idp.test.surfconext.nl/SingleSignOnService",
                 true, true, "https://refeds.org/profile/mfa");
-
+        
         AuthnRequest authnRequest = this.defaultSAMLService.parseAuthnRequest(authnRequestXML, true, true);
         assertEquals(serviceProvider.getEntityId(), authnRequest.getIssuer().getValue());
         assertEquals(serviceProvider.getAcsLocation(), authnRequest.getAssertionConsumerServiceURL());
+    }
+    
+    /**
+     * Tests signature wrapping attacks in the authentication requests, with the following message modifications:
+     * - Wrapped content with/without signature
+     * - Wrapped content in Object / RequestedAuthnContext
+     * - Processed content with equal/modified/missing ID
+     * 
+     * This leads to 12 different message combinations. 
+     * The destination in every message is modified to hackmanit.de. 
+     * 
+     * If any of the message is successfully validated AND hackmanit.de is processed as a valid destination,
+     * the test fails.
+     * 
+     * Note that all messages were generated statically so there is a need for an update once the keys/certs 
+     * are updated.
+     */
+    @Test
+    void testSignatureWrappingAttacks() {
+        
+        File[] files = new File(DefaultSAMLService.class.getClassLoader().getResource("req-wrapping").getPath()).listFiles();
+        
+        for (File file : files) {
+            String authnRequestXML = readFile("req-wrapping/" + file.getName());
+            try {
+                AuthnRequest authnRequest = defaultSAMLService.parseAuthnRequest(authnRequestXML, false, false);
+                String destination = authnRequest.getDestination();
+                LOG.warn("Signature valid for " + file.getName() + " with destination: " + destination);
+                assertEquals("https://mujina-idp.test.surfconext.nl/SingleSignOnService", destination);
+            } catch (Exception ex) {
+                LOG.debug("Exception successfully thrown for " + file.getName(), ex);
+            }
+        }
+
+    }
+    
+    /**
+     * Tests for node splitting attacks with CDATA and comments.
+     * 
+     * If any of the message is successfully split the issuer text content, an error is thrown.
+     * 
+     * Note that all messages were generated statically so there is a need for an update once the keys/certs 
+     * are updated.
+     */
+    @Test
+    void testNodeSplitting() {
+        String authnRequestXML = readFile("node-splitting/comment.xml");
+        AuthnRequest authnRequest = defaultSAMLService.parseAuthnRequest(authnRequestXML, false, false);
+        assertEquals("https://engine.test.surfconext.nl/authentication/sp/metadata", authnRequest.getIssuer().getValue());
+        
+        authnRequestXML = readFile("node-splitting/cdata.xml");
+        authnRequest = defaultSAMLService.parseAuthnRequest(authnRequestXML, false, false);
+        assertEquals("https://engine.test.surfconext.nl/authentication/sp/metadata", authnRequest.getIssuer().getValue());
     }
 }
