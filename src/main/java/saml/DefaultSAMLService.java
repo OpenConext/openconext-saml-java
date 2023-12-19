@@ -28,6 +28,7 @@ import org.opensaml.saml.ext.saml2mdui.UIInfo;
 import org.opensaml.saml.saml2.core.*;
 import org.opensaml.saml.saml2.metadata.Extensions;
 import org.opensaml.saml.saml2.metadata.*;
+import org.opensaml.saml.security.impl.SAMLSignatureProfileValidator;
 import org.opensaml.security.credential.Credential;
 import org.opensaml.security.credential.UsageType;
 import org.opensaml.security.credential.impl.KeyStoreCredentialResolver;
@@ -90,6 +91,7 @@ public class DefaultSAMLService implements SAMLService {
     private static final Logger LOG = LoggerFactory.getLogger(DefaultSAMLService.class);
 
     private final OpenSamlVelocityEngine velocityEngine = new OpenSamlVelocityEngine();
+    private final SAMLSignatureProfileValidator samlSignatureProfileValidator = new SAMLSignatureProfileValidator();
     private final BasicParserPool parserPool;
     private final Map<String, SAMLServiceProvider> serviceProviders;
     private final SAMLConfiguration configuration;
@@ -172,7 +174,7 @@ public class DefaultSAMLService implements SAMLService {
                 throw new SignatureException("Signature element not found.");
             }
         } else {
-            SignatureValidator.validate(signature, credential);
+            this.samlSignatureProfileValidator.validate(signature);
         }
     }
 
