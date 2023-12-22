@@ -325,13 +325,10 @@ class DefaultSAMLServiceTest {
      * - Wrapped content with/without signature
      * - Wrapped content in Object / RequestedAuthnContext
      * - Processed content with equal/modified/missing ID
-     *
      * This leads to 12 different message combinations.
      * The destination in every message is modified to hackmanit.de.
-     *
      * If any of the message is successfully validated AND hackmanit.de is processed as a valid destination,
      * the test fails.
-     *
      * Note that all messages were generated statically so there is a need for an update once the keys/certs
      * are updated.
      */
@@ -346,9 +343,7 @@ class DefaultSAMLServiceTest {
 
     /**
      * Tests for node splitting attacks with CDATA and comments.
-     *
      * If any of the message is successfully split the issuer text content, an error is thrown.
-     *
      * Note that all messages were generated statically so there is a need for an update once the keys/certs
      * are updated.
      */

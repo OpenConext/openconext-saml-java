@@ -1,6 +1,5 @@
 package saml;
 
-import lombok.SneakyThrows;
 import org.opensaml.saml.saml2.core.*;
 import org.opensaml.saml.saml2.metadata.EntityDescriptor;
 import org.opensaml.security.credential.Credential;
