@@ -93,7 +93,7 @@ public class DefaultSAMLService implements SAMLService {
     private final OpenSamlVelocityEngine velocityEngine = new OpenSamlVelocityEngine();
     private final SAMLSignatureProfileValidator samlSignatureProfileValidator = new SAMLSignatureProfileValidator();
     private final BasicParserPool parserPool;
-    private final Map<String, SAMLServiceProvider> serviceProviders;
+    private final Map<String, SAMLServiceProvider> serviceProviders = new HashMap<>();
     private final SAMLConfiguration configuration;
     private final Duration skewTime = Duration.ofMinutes(5);
     private final Credential signingCredential;
@@ -116,11 +116,11 @@ public class DefaultSAMLService implements SAMLService {
         this.configuration = configuration;
         //Must first bootstrap before we can parse service-providers
         bootstrap();
-        this.serviceProviders = configuration.getServiceProviders().stream()
-                .collect(Collectors.toMap(
-                        SAMLServiceProvider::getEntityId,
-                        this::resolveSigningCredential
-                ));
+        //Prevent null-pointer when the SP is down, will lazily retry when actually using this SP
+        configuration.getServiceProviders()
+                .forEach(serviceProvider -> this.serviceProviders.put(
+                        serviceProvider.getEntityId(),
+                        this.resolveSigningCredential(serviceProvider)));
     }
 
     @SneakyThrows

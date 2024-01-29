@@ -5,7 +5,7 @@
 
     <groupId>org.openconext</groupId>
     <artifactId>saml-idp</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <name>saml-idp</name>
 
     <properties>
