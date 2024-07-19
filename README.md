@@ -1,6 +1,7 @@
 # openconext-samlidp-libjava
 [![JAVA CI](https://github.com/OpenConext/openconext-samlidp-libjava/actions/workflows/actions.yml/badge.svg)](https://github.com/OpenConext/openconext-samlidp-libjava/actions/workflows/actions.yml)
-[![codecov.io](https://codecov.io/github/OpenConext/openconext-samlidp-libjava/coverage.svg)](https://codecov.io/github/OpenConext/openconext-samlidp-libjava)
+![Coverage](.github/badges/jacoco.svg)
+![Branches](.github/badges/branches.svg)
 
 ### [Usage](#usage)
 
