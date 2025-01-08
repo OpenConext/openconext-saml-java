@@ -3,6 +3,11 @@
 ![Coverage](.github/badges/jacoco.svg)
 ![Branches](.github/badges/branches.svg)
 
+### [Dependencies](#dependencies)
+
+The 3.0.0. release now uses the latest `tomcat-embed-core` which is compliant with Spring Security 6. All references
+to `javax.servlet.http.HttpServletResponse` have been replaced with `jakarta.servlet.http.HttpServletResponse`.
+
 ### [Usage](#usage)
 
 The main interface of the SAML library is `SAMLService`. 
