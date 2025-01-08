@@ -7,7 +7,7 @@ import saml.model.SAMLAttribute;
 import saml.model.SAMLServiceProvider;
 import saml.model.SAMLStatus;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 
 public interface SAMLService {

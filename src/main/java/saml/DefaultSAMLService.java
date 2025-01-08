@@ -52,7 +52,7 @@ import saml.model.*;
 import saml.parser.EncodingUtils;
 import saml.parser.OpenSamlVelocityEngine;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 import javax.xml.namespace.QName;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
