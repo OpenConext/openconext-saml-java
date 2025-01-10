@@ -1,12 +1,12 @@
 package saml.crypto;
 
 
+import jakarta.xml.bind.DatatypeConverter;
 import lombok.SneakyThrows;
 import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 
-import javax.xml.bind.DatatypeConverter;
 import java.io.ByteArrayInputStream;
 import java.io.CharArrayReader;
 import java.security.KeyPair;

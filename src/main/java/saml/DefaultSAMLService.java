@@ -1,10 +1,10 @@
 package saml;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.SneakyThrows;
-import net.shibboleth.shared.xml.impl.BasicParserPool;
 import net.shibboleth.shared.resolver.CriteriaSet;
-import net.shibboleth.shared.xml.impl.BasicParserPool;
 import net.shibboleth.shared.xml.SerializeSupport;
+import net.shibboleth.shared.xml.impl.BasicParserPool;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringEscapeUtils;
@@ -53,7 +53,6 @@ import saml.model.*;
 import saml.parser.EncodingUtils;
 import saml.parser.OpenSamlVelocityEngine;
 
-import jakarta.servlet.http.HttpServletResponse;
 import javax.xml.namespace.QName;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;

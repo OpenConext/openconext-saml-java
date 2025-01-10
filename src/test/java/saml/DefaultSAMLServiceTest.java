@@ -1,9 +1,9 @@
 package saml;
 
 import lombok.SneakyThrows;
-import net.shibboleth.utilities.java.support.resolver.CriteriaSet;
-import net.shibboleth.utilities.java.support.resolver.ResolverException;
-import net.shibboleth.utilities.java.support.xml.SerializeSupport;
+import net.shibboleth.shared.resolver.CriteriaSet;
+import net.shibboleth.shared.resolver.ResolverException;
+import net.shibboleth.shared.xml.SerializeSupport;
 import org.apache.commons.io.IOUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -33,10 +33,7 @@ import java.nio.charset.Charset;
 import java.security.KeyStore;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -267,7 +264,7 @@ class DefaultSAMLServiceTest {
 
         StatusCode statusCode = response.getStatus().getStatusCode();
         StatusCode innerStatusCode = statusCode.getStatusCode();
-        assertEquals("urn:oasis:names:tc:SAML:2.0:status:Responder", statusCode.getValue() );
+        assertEquals("urn:oasis:names:tc:SAML:2.0:status:Responder", statusCode.getValue());
         assertEquals(SAMLStatus.NO_AUTHN_CONTEXT.getStatus(), innerStatusCode.getValue());
 
         assertEquals("Not Ok", response.getStatus().getStatusMessage().getValue());
@@ -334,11 +331,15 @@ class DefaultSAMLServiceTest {
      */
     @Test
     void testSignatureWrappingAttacks() {
-        File[] files = new File(DefaultSAMLService.class.getClassLoader().getResource("req-wrapping").getPath()).listFiles();
-        Stream.of(files).forEach(file -> {
-            String authnRequestXML = readFile("req-wrapping/" + file.getName());
-            assertThrows(SignatureException.class, () -> defaultSAMLService.parseAuthnRequest(authnRequestXML, false, false));
-        });
+        Stream.of(Objects.requireNonNull(new File(Objects.requireNonNull(DefaultSAMLService.class.getClassLoader()
+                        .getResource("req-wrapping")).getPath())
+                        .listFiles()))
+                .sorted(Comparator.comparing(File::getName))
+                .forEach(file -> {
+                    String authnRequestXML = readFile("req-wrapping/" + file.getName());
+                    assertThrows(SignatureException.class, () ->
+                            defaultSAMLService.parseAuthnRequest(authnRequestXML, false, false));
+                });
     }
 
     /**
