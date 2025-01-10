@@ -1,7 +1,7 @@
 package saml.parser;
 
-
-import net.shibboleth.utilities.java.support.velocity.VelocityEngine;
+import org.apache.velocity.app.VelocityEngine;
+//import net.shibboleth.utilities.java.support.velocity.VelocityEngine;
 import org.apache.velocity.VelocityContext;
 import org.slf4j.helpers.NOPLogger;
 

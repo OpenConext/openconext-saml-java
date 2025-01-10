@@ -1,9 +1,10 @@
 package saml;
 
 import lombok.SneakyThrows;
-import net.shibboleth.utilities.java.support.resolver.CriteriaSet;
-import net.shibboleth.utilities.java.support.xml.BasicParserPool;
-import net.shibboleth.utilities.java.support.xml.SerializeSupport;
+import net.shibboleth.shared.xml.impl.BasicParserPool;
+import net.shibboleth.shared.resolver.CriteriaSet;
+import net.shibboleth.shared.xml.impl.BasicParserPool;
+import net.shibboleth.shared.xml.SerializeSupport;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringEscapeUtils;
