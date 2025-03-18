@@ -1,7 +1,7 @@
 package saml.model;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.Setter;
 import org.opensaml.security.credential.Credential;
 
 @Getter
@@ -9,7 +9,9 @@ public class SAMLServiceProvider {
 
     private final String entityId;
     private final String metaDataUrl;
+    @Setter
     private Credential credential;
+    @Setter
     private String acsLocation;
 
     public SAMLServiceProvider(String entityId, String metaDataUrl) {
@@ -17,11 +19,4 @@ public class SAMLServiceProvider {
         this.metaDataUrl = metaDataUrl;
     }
 
-    public void setCredential(Credential credential) {
-        this.credential = credential;
-    }
-
-    public void setAcsLocation(String acsLocation) {
-        this.acsLocation = acsLocation;
-    }
 }

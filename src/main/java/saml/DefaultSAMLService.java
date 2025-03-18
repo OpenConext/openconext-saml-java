@@ -414,7 +414,7 @@ public class DefaultSAMLService implements SAMLService {
                     XSString stringValue = stringBuilder.buildObject(AttributeValue.DEFAULT_ELEMENT_NAME, XSString.TYPE_NAME);
                     stringValue.setValue(value.getValue());
                     return stringValue;
-                }).collect(Collectors.toList()));
+                }).toList());
                 attributes.add(attribute);
             });
             assertion.getAttributeStatements().add(attributeStatement);
