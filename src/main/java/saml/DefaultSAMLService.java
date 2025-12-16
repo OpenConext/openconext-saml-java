@@ -27,8 +27,8 @@ import org.opensaml.saml.ext.saml2mdui.DisplayName;
 import org.opensaml.saml.ext.saml2mdui.Logo;
 import org.opensaml.saml.ext.saml2mdui.UIInfo;
 import org.opensaml.saml.saml2.core.*;
-import org.opensaml.saml.saml2.metadata.Extensions;
 import org.opensaml.saml.saml2.metadata.*;
+import org.opensaml.saml.saml2.metadata.Extensions;
 import org.opensaml.saml.security.impl.SAMLSignatureProfileValidator;
 import org.opensaml.security.credential.Credential;
 import org.opensaml.security.credential.UsageType;
@@ -57,7 +57,7 @@ import javax.xml.namespace.QName;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringWriter;
-import java.net.URL;
+import java.net.URI;
 import java.nio.charset.Charset;
 import java.security.KeyStore;
 import java.time.Duration;
@@ -536,7 +536,7 @@ public class DefaultSAMLService implements SAMLService {
     @Override
     public SAMLServiceProvider resolveSigningCredential(SAMLServiceProvider serviceProvider) {
         try {
-            String xml = IOUtils.toString(new URL(serviceProvider.getMetaDataUrl()), Charset.defaultCharset());
+            String xml = IOUtils.toString(URI.create(serviceProvider.getMetaDataUrl()).toURL(), Charset.defaultCharset());
             EntityDescriptor entityDescriptor = (EntityDescriptor) this.parseXMLObject(xml, false, false);
             String acsLocation = entityDescriptor.getSPSSODescriptor(SAML20P_NS).getAssertionConsumerServices().get(0).getLocation();
             serviceProvider.setAcsLocation(acsLocation);
@@ -554,7 +554,7 @@ public class DefaultSAMLService implements SAMLService {
 
             return serviceProvider;
         } catch (RuntimeException | IOException e) {
-            LOG.error("Error in resolving MetaData for metaData URL:" + serviceProvider.getMetaDataUrl(), e);
+            LOG.error("Error in resolving MetaData for metaData URL:{}", serviceProvider.getMetaDataUrl(), e);
             return null;
         }
     }
