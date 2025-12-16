@@ -1,0 +1,36 @@
+---
+version: 2
+updates:
+  # Maintain dependencies for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    groups:
+      github-actions:
+        applies-to: version-updates
+        patterns:
+          - "*"
+  # Maintain dependencies for server
+  - package-ecosystem: "maven"
+    directories:
+      - "/**"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 25
+    groups:
+      backend-prod:
+        applies-to: version-updates
+        dependency-type: production
+        update-types:
+          - "minor"
+          - "patch"
+      backend-dev:
+        applies-to: version-updates
+        dependency-type: development
+        update-types:
+          - "minor"
+          - "patch"
+    # We want to manage something ourselves and not receive PR's for something one day
+    ignore:
+      - dependency-name: "xxx.yyy.zzz*"
