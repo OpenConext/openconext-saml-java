@@ -31,6 +31,7 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    # We want to manage something ourselves and not receive PR's for something one day
+    # We want to manage this ourselves and not receive PR's for this
     ignore:
-      - dependency-name: "xxx.yyy.zzz*"
+      - dependency-name: "org.springframework.*"
+        update-types: ["version-update:semver-major"]
